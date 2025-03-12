@@ -1,8 +1,7 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
-import { getUserData, purchaseTokens, isAuthenticated } from '@/utils/auth';
+import { getUserData, isAuthenticated } from '@/utils/auth';
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from '@/lib/utils';
 import { 
@@ -11,8 +10,11 @@ import {
   Clock, 
   ChevronDown, 
   ChevronUp,
-  TrendingUp
+  TrendingUp,
+  Receipt
 } from 'lucide-react';
+import { PaymentModal } from '@/components/PaymentModal';
+import { PaymentHistory } from '@/components/PaymentHistory';
 
 interface UsageHistory {
   date: string;
@@ -32,8 +34,9 @@ const Account = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [isPaymentHistoryExpanded, setIsPaymentHistoryExpanded] = useState(false);
   const [selectedTokenAmount, setSelectedTokenAmount] = useState(100);
-  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -69,44 +72,18 @@ const Account = () => {
     checkAuth();
   }, [navigate, toast]);
 
-  const handlePurchase = async () => {
-    setIsPurchasing(true);
-    
-    try {
-      const selectedPackage = tokenPackages.find(p => p.amount === selectedTokenAmount);
-      if (!selectedPackage) return;
-      
-      const result = await purchaseTokens(selectedTokenAmount, 'credit_card');
-      
-      if (result.success) {
-        toast({
-          title: "Mua token thành công",
-          description: `Bạn đã mua thành công ${selectedTokenAmount} token.`,
-        });
-        
-        // Update the local userData state
-        if (userData) {
-          setUserData({
-            ...userData,
-            tokens: result.newBalance || userData.tokens + selectedTokenAmount,
-          });
-        }
-      } else {
-        toast({
-          title: "Lỗi mua token",
-          description: result.error || "Không thể mua token. Vui lòng thử lại sau.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Purchase error', error);
-      toast({
-        title: "Lỗi giao dịch",
-        description: "Đã xảy ra lỗi trong quá trình thanh toán. Vui lòng thử lại sau.",
-        variant: "destructive",
+  const handlePurchaseStart = () => {
+    setIsPaymentModalOpen(true);
+  };
+
+  const handlePaymentSuccess = (transactionId: string) => {
+    // Update the local userData state with new token balance
+    const selectedPackage = tokenPackages.find(p => p.amount === selectedTokenAmount);
+    if (userData && selectedPackage) {
+      setUserData({
+        ...userData,
+        tokens: userData.tokens + selectedPackage.amount,
       });
-    } finally {
-      setIsPurchasing(false);
     }
   };
 
@@ -129,6 +106,8 @@ const Account = () => {
       </Layout>
     );
   }
+
+  const selectedPackage = tokenPackages.find(p => p.amount === selectedTokenAmount) || tokenPackages[0];
 
   return (
     <Layout>
@@ -160,18 +139,11 @@ const Account = () => {
             
             <div className="mt-6 max-w-xs w-full">
               <button 
-                onClick={() => handlePurchase()}
-                disabled={isPurchasing}
+                onClick={handlePurchaseStart}
                 className="w-full py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-all-200 flex items-center justify-center"
               >
-                {isPurchasing ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <CreditCard className="w-4 h-4 mr-2" />
-                    Mua thêm token
-                  </>
-                )}
+                <CreditCard className="w-4 h-4 mr-2" />
+                Mua thêm token
               </button>
             </div>
           </div>
@@ -216,6 +188,31 @@ const Account = () => {
               </div>
             ))}
           </div>
+        </div>
+        
+        {/* Payment History */}
+        <div className="glass-card p-6">
+          <div 
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setIsPaymentHistoryExpanded(!isPaymentHistoryExpanded)}
+          >
+            <div className="flex items-center">
+              <Receipt className="w-5 h-5 text-accent mr-2" />
+              <h2 className="text-xl font-semibold">Lịch sử thanh toán</h2>
+            </div>
+            
+            {isPaymentHistoryExpanded ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </div>
+          
+          {isPaymentHistoryExpanded && (
+            <div className="mt-4">
+              <PaymentHistory />
+            </div>
+          )}
         </div>
         
         {/* Usage History */}
@@ -280,6 +277,15 @@ const Account = () => {
           </div>
         </div>
       </div>
+      
+      {/* Payment Modal */}
+      <PaymentModal
+        open={isPaymentModalOpen}
+        onOpenChange={setIsPaymentModalOpen}
+        tokenAmount={selectedTokenAmount}
+        price={selectedPackage?.price || 0}
+        onSuccess={handlePaymentSuccess}
+      />
     </Layout>
   );
 };

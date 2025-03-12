@@ -1,16 +1,39 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getUserData } from "@/utils/auth";
 
 interface TokenBalanceProps {
   className?: string;
   variant?: "default" | "compact";
+  refreshTrigger?: number;
 }
 
-export function TokenBalance({ className, variant = "default" }: TokenBalanceProps) {
-  // This would normally come from an API or state management
-  const [balance, setBalance] = React.useState(100);
+export function TokenBalance({ 
+  className, 
+  variant = "default", 
+  refreshTrigger = 0 
+}: TokenBalanceProps) {
+  const [balance, setBalance] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userData = await getUserData();
+        if (userData) {
+          setBalance(userData.tokens);
+        }
+      } catch (error) {
+        console.error("Error fetching token balance:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [refreshTrigger]);
   
   return (
     <div 
@@ -21,7 +44,11 @@ export function TokenBalance({ className, variant = "default" }: TokenBalancePro
       )}
     >
       <Coins size={variant === "compact" ? 14 : 16} className="text-accent mr-2" />
-      <span>{balance.toLocaleString()} Token</span>
+      {isLoading ? (
+        <span className="w-8 h-3 bg-muted animate-pulse rounded"></span>
+      ) : (
+        <span>{balance.toLocaleString()} Token</span>
+      )}
     </div>
   );
 }

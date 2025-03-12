@@ -1,4 +1,3 @@
-
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
@@ -115,21 +114,18 @@ export async function getUserData(): Promise<any> {
   };
 }
 
-// Mock function to purchase tokens 
+// Updated to integrate with payment system
 export async function purchaseTokens(
   amount: number, 
   paymentMethod: string
 ): Promise<{ success: boolean; newBalance?: number; error?: string }> {
-  // Simulate API call for token purchase
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // For demo: always succeed
-      resolve({ 
-        success: true, 
-        newBalance: 100 + amount // Assume starting balance of 100
-      });
-    }, 1500);
-  });
+  // This function is now deprecated - use the payment system instead
+  console.warn("purchaseTokens in auth.ts is deprecated. Use the payment system instead.");
+  
+  return { 
+    success: true, 
+    newBalance: 100 + amount // Assume starting balance of 100
+  };
 }
 
 // Set up auth state listener
