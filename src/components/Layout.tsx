@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { TokenBalance } from "./TokenBalance";
@@ -13,7 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { auth } from "@/lib/firebase";
 import { logout } from "@/utils/auth";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/hooks/use-toast";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -26,7 +25,6 @@ export function Layout({ children }: LayoutProps) {
   const isMobile = useIsMobile();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  // Check Firebase authentication state
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setIsLoggedIn(!!user);
@@ -61,7 +59,6 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
       <header className="sticky top-0 z-50 w-full glass shadow-subtle border-b border-border/40">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
@@ -91,7 +88,6 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </header>
       
-      {/* Mobile Menu */}
       <div 
         className={cn(
           "fixed inset-0 z-40 transform transition-all-300 lg:hidden",
@@ -138,7 +134,6 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </div>
       
-      {/* Desktop Sidebar */}
       <div className="flex-1 flex overflow-hidden">
         {isLoggedIn && !isMobile && (
           <aside className="hidden md:flex w-64 flex-shrink-0 flex-col border-r border-border/40">
@@ -172,7 +167,6 @@ export function Layout({ children }: LayoutProps) {
           </aside>
         )}
         
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="container mx-auto p-4 sm:p-6 md:p-8 max-w-5xl animate-fade-in">
             {children}
