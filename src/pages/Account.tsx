@@ -4,10 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { getUserData, purchaseTokens, isAuthenticated } from '@/utils/auth';
 import { useToast } from "@/hooks/use-toast";
-import { AccountTokenBalance } from '@/components/account/TokenBalance';
-import { TokenPackages } from '@/components/account/TokenPackages';
-import { UsageHistory } from '@/components/account/UsageHistory';
-import { UsageStatistics } from '@/components/account/UsageStatistics';
+import { formatCurrency } from '@/lib/utils';
+import { 
+  CreditCard, 
+  Coins, 
+  Clock, 
+  ChevronDown, 
+  ChevronUp,
+  TrendingUp
+} from 'lucide-react';
 
 interface UsageHistory {
   date: string;
@@ -26,6 +31,7 @@ interface UserData {
 const Account = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
   const [selectedTokenAmount, setSelectedTokenAmount] = useState(100);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const navigate = useNavigate();
@@ -139,21 +145,140 @@ const Account = () => {
           </p>
         </div>
         
-        <AccountTokenBalance 
-          tokens={userData.tokens}
-          isPurchasing={isPurchasing}
-          handlePurchase={handlePurchase}
-        />
+        {/* Token Balance */}
+        <div className="glass-card p-6">
+          <div className="flex items-center mb-4">
+            <Coins className="w-5 h-5 text-accent mr-2" />
+            <h2 className="text-xl font-semibold">Số dư token</h2>
+          </div>
+          
+          <div className="flex flex-col items-center bg-secondary/40 p-6 rounded-lg text-center">
+            <div className="text-4xl font-bold mb-2">
+              {userData.tokens.toLocaleString()}
+            </div>
+            <p className="text-muted-foreground">Token hiện có</p>
+            
+            <div className="mt-6 max-w-xs w-full">
+              <button 
+                onClick={() => handlePurchase()}
+                disabled={isPurchasing}
+                className="w-full py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/90 transition-all-200 flex items-center justify-center"
+              >
+                {isPurchasing ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Mua thêm token
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
         
-        <TokenPackages 
-          packages={tokenPackages}
-          selectedAmount={selectedTokenAmount}
-          onSelectAmount={setSelectedTokenAmount}
-        />
+        {/* Token Packages */}
+        <div className="glass-card p-6">
+          <div className="flex items-center mb-4">
+            <CreditCard className="w-5 h-5 text-accent mr-2" />
+            <h2 className="text-xl font-semibold">Gói token</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {tokenPackages.map((pkg) => (
+              <div 
+                key={pkg.amount}
+                className={`relative p-6 rounded-lg border transition-all-200 cursor-pointer ${
+                  selectedTokenAmount === pkg.amount 
+                    ? 'border-accent bg-accent/5' 
+                    : 'border-border hover:border-accent/30'
+                }`}
+                onClick={() => setSelectedTokenAmount(pkg.amount)}
+              >
+                {pkg.featured && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-accent text-white text-xs px-3 py-1 rounded-full">
+                    Phổ biến nhất
+                  </div>
+                )}
+                
+                <div className={`text-center ${pkg.featured ? 'pt-2' : ''}`}>
+                  <div className="text-2xl font-bold mb-1">
+                    {pkg.label}
+                  </div>
+                  <div className="text-lg font-medium text-muted-foreground mb-3">
+                    {formatCurrency(pkg.price)}
+                  </div>
+                  
+                  <div className="text-sm text-muted-foreground">
+                    ({formatCurrency(pkg.price / pkg.amount)} / token)
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         
-        <UsageHistory history={userData.usageHistory} />
+        {/* Usage History */}
+        <div className="glass-card p-6">
+          <div 
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+          >
+            <div className="flex items-center">
+              <Clock className="w-5 h-5 text-accent mr-2" />
+              <h2 className="text-xl font-semibold">Lịch sử sử dụng</h2>
+            </div>
+            
+            {isHistoryExpanded ? (
+              <ChevronUp className="w-5 h-5" />
+            ) : (
+              <ChevronDown className="w-5 h-5" />
+            )}
+          </div>
+          
+          {isHistoryExpanded && (
+            <div className="mt-4">
+              {userData.usageHistory.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 px-4">Ngày</th>
+                        <th className="text-right py-3 px-4">Token sử dụng</th>
+                        <th className="text-right py-3 px-4">Chi phí</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userData.usageHistory.map((item, index) => (
+                        <tr key={index} className="border-b">
+                          <td className="py-3 px-4">{item.date}</td>
+                          <td className="text-right py-3 px-4">{item.tokensUsed}</td>
+                          <td className="text-right py-3 px-4">{item.cost} token</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  Chưa có lịch sử sử dụng
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         
-        <UsageStatistics />
+        {/* Usage Statistics */}
+        <div className="glass-card p-6">
+          <div className="flex items-center mb-4">
+            <TrendingUp className="w-5 h-5 text-accent mr-2" />
+            <h2 className="text-xl font-semibold">Thống kê sử dụng</h2>
+          </div>
+          
+          <div className="text-center py-6 text-muted-foreground">
+            Dữ liệu thống kê sẽ được hiển thị sau khi bạn bắt đầu sử dụng dịch vụ
+          </div>
+        </div>
       </div>
     </Layout>
   );
