@@ -1,17 +1,17 @@
 
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { TokenBalance } from "./TokenBalance";
 import { 
   MessageCircle, 
   User, 
   LogOut, 
-  Coins,
   Menu,
   X
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -20,14 +20,34 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  // Simulating user auth check
+  // Check authentication status
   useEffect(() => {
-    const hasToken = localStorage.getItem('token');
-    setIsLoggedIn(!!hasToken);
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsLoggedIn(!!user);
+    };
+    
+    checkAuth();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setIsLoggedIn(!!session);
+      }
+    );
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+  
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
+  };
   
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -108,17 +128,16 @@ export function Layout({ children }: LayoutProps) {
                 <div className="mt-4 px-4 py-2">
                   <TokenBalance />
                 </div>
-                <Link
-                  to="/logout"
-                  className="flex items-center space-x-2 px-4 py-2 rounded-md text-destructive hover:bg-destructive/5 transition-all-200"
+                <button
                   onClick={() => {
-                    localStorage.removeItem('token');
+                    handleLogout();
                     closeMenu();
                   }}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-md text-destructive hover:bg-destructive/5 transition-all-200"
                 >
                   <LogOut size={18} />
                   <span>Đăng xuất</span>
-                </Link>
+                </button>
               </>
             )}
           </div>
@@ -148,16 +167,13 @@ export function Layout({ children }: LayoutProps) {
             </nav>
             
             <div className="p-4 border-t border-border/40">
-              <Link
-                to="/logout"
+              <button
+                onClick={handleLogout}
                 className="flex items-center space-x-2 px-4 py-2 rounded-md text-muted-foreground hover:bg-accent/5 transition-all-200"
-                onClick={() => {
-                  localStorage.removeItem('token');
-                }}
               >
                 <LogOut size={18} />
                 <span>Đăng xuất</span>
-              </Link>
+              </button>
             </div>
           </aside>
         )}
