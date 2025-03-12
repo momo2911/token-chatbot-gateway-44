@@ -8,13 +8,30 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// In-memory storage for chat sessions (in a real app, use a database)
+const chatSessions = new Map();
+
+// Get chat history for a user
+router.get('/chat/history/:userId', (req, res) => {
+  const { userId } = req.params;
+  const userHistory = chatSessions.get(userId) || [];
+  res.json({ success: true, history: userHistory });
+});
+
 // Endpoint to handle AI chat
 router.post('/chat', async (req, res) => {
   try {
-    const { prompt, history = [] } = req.body;
+    const { prompt, history = [], userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required'
+      });
+    }
     
     // Log the request
-    console.log('Received request:', { prompt, historyLength: history.length });
+    console.log('Received request:', { prompt, historyLength: history.length, userId });
     
     // Format messages for OpenAI
     const messages = [
@@ -27,12 +44,21 @@ router.post('/chat', async (req, res) => {
     
     // Make request to OpenAI
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // You can change this to other models
+      model: "gpt-4o-mini",
       messages: messages,
       temperature: 0.7,
     });
     
     const response = completion.choices[0].message.content;
+    
+    // Update chat history
+    const userHistory = chatSessions.get(userId) || [];
+    const newMessages = [
+      ...userHistory,
+      { role: 'user', content: prompt, timestamp: new Date() },
+      { role: 'assistant', content: response, timestamp: new Date() }
+    ];
+    chatSessions.set(userId, newMessages);
     
     // Calculate token usage
     const promptTokens = completion.usage.prompt_tokens;

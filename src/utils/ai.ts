@@ -1,5 +1,6 @@
 
 import { Message } from "@/components/ResponseDisplay";
+import { auth } from "@/lib/firebase";
 
 // API URL based on environment
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/ai';
@@ -14,6 +15,12 @@ export async function getAIResponse(
   console.log("History:", history);
   
   try {
+    // Get current user ID from Firebase Auth
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
     const response = await fetch(`${API_URL}/chat`, {
       method: 'POST',
       headers: {
@@ -24,7 +31,8 @@ export async function getAIResponse(
         history: history.map(msg => ({
           role: msg.role,
           content: msg.content
-        }))
+        })),
+        userId
       }),
     });
     
@@ -43,6 +51,27 @@ export async function getAIResponse(
   } catch (error) {
     console.error('Error getting AI response:', error);
     throw error;
+  }
+}
+
+// Get chat history for current user
+export async function getChatHistory(): Promise<Message[]> {
+  try {
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    const response = await fetch(`${API_URL}/chat/history/${userId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch chat history');
+    }
+
+    const data = await response.json();
+    return data.history || [];
+  } catch (error) {
+    console.error('Error fetching chat history:', error);
+    return [];
   }
 }
 
