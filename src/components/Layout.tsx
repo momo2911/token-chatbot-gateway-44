@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { TokenBalance } from "./TokenBalance";
@@ -44,11 +45,19 @@ export function Layout({ children }: LayoutProps) {
   const handleLogout = async () => {
     try {
       await logout();
-      toast.success("Đã đăng xuất thành công");
+      toast({
+        title: "Thành công",
+        description: "Đã đăng xuất thành công",
+        variant: "default",
+      });
       navigate("/auth");
     } catch (error) {
       console.error("Logout error:", error);
-      toast.error("Đã xảy ra lỗi khi đăng xuất");
+      toast({
+        title: "Lỗi",
+        description: "Đã xảy ra lỗi khi đăng xuất",
+        variant: "destructive",
+      });
     }
   };
   
