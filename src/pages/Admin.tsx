@@ -8,25 +8,40 @@ import { AdminChatSessionsPanel } from '@/components/admin/AdminChatSessionsPane
 import { AdminTransactionsPanel } from '@/components/admin/AdminTransactionsPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isAdmin } from '@/utils/auth';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
         const adminStatus = await isAdmin();
         setIsAuthorized(adminStatus);
+        
+        if (!adminStatus) {
+          toast({
+            title: "Access Denied",
+            description: "You don't have admin privileges to access this page.",
+            variant: "destructive",
+          });
+        }
       } catch (error) {
         console.error('Error checking admin status:', error);
+        toast({
+          title: "Error",
+          description: "Failed to verify admin status.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
     checkAdminStatus();
-  }, []);
+  }, [toast]);
 
   if (loading) {
     return (

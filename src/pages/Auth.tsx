@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { login, register, isAuthenticated } from '@/utils/auth';
 import { useToast } from "@/hooks/use-toast";
 import { ArrowRight } from 'lucide-react';
+import { doc, setDoc, getFirestore } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -54,6 +56,45 @@ const Auth = () => {
         variant: "destructive",
       });
       console.error('Auth error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to create an admin user for testing
+  const createAdminUser = async () => {
+    if (!auth.currentUser) {
+      toast({
+        title: "Lỗi",
+        description: "Bạn cần đăng nhập trước",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await setDoc(doc(db, "users", auth.currentUser.uid), {
+        name: auth.currentUser.displayName,
+        email: auth.currentUser.email,
+        role: "admin",
+        tokens: 1000,
+        createdAt: new Date()
+      });
+      
+      toast({
+        title: "Thành công",
+        description: "Tài khoản của bạn đã được nâng cấp lên admin",
+      });
+      
+      navigate('/admin');
+    } catch (error) {
+      console.error("Error creating admin:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể nâng cấp tài khoản",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -158,6 +199,18 @@ const Auth = () => {
                   : 'Đã có tài khoản? Đăng nhập'}
               </button>
             </div>
+
+            {isLogin && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={createAdminUser}
+                  className="text-xs text-muted-foreground hover:text-accent transition-all-200"
+                  disabled={isLoading}
+                >
+                  Tạo tài khoản admin (chỉ cho mục đích demo)
+                </button>
+              </div>
+            )}
           </div>
         </div>
         

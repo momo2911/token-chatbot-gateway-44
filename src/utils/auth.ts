@@ -1,3 +1,4 @@
+
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
@@ -6,6 +7,8 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 // Token management for local storage backup
 export function saveAuthToken(token: string): void {
@@ -65,7 +68,14 @@ export async function register(
     const token = await userCredential.user.getIdToken();
     saveAuthToken(token);
     
-    // Initialize user data here if needed
+    // Create user document with role in Firestore
+    await setDoc(doc(db, "users", userCredential.user.uid), {
+      name,
+      email,
+      role: "user", // Default role for new users
+      tokens: 100, // Initial tokens
+      createdAt: new Date()
+    });
     
     return { success: true, token };
   } catch (error: any) {
@@ -100,18 +110,31 @@ export async function getUserData(): Promise<any> {
     return null;
   }
   
-  // In a real app, this would fetch the user's profile from your database
-  return {
-    name: auth.currentUser.displayName || "Người dùng",
-    email: auth.currentUser.email,
-    tokens: 100,
-    plan: "Cơ bản",
-    usageHistory: [
-      { date: "2023-10-01", tokensUsed: 25, cost: 25 },
-      { date: "2023-10-02", tokensUsed: 30, cost: 30 },
-      { date: "2023-10-03", tokensUsed: 15, cost: 15 },
-    ]
-  };
+  try {
+    const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+    
+    if (userDoc.exists()) {
+      return userDoc.data();
+    } else {
+      // Fallback if no document exists
+      return {
+        name: auth.currentUser.displayName || "Người dùng",
+        email: auth.currentUser.email,
+        tokens: 100,
+        role: "user",
+        plan: "Cơ bản"
+      };
+    }
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    return {
+      name: auth.currentUser.displayName || "Người dùng",
+      email: auth.currentUser.email,
+      tokens: 100,
+      role: "user",
+      plan: "Cơ bản"
+    };
+  }
 }
 
 // Updated to integrate with payment system
@@ -136,15 +159,15 @@ export function onAuthStateChange(callback: (user: any) => void): () => void {
 // Check if current user is an admin
 export async function isAdmin(): Promise<boolean> {
   try {
-    // This is a simple implementation. In a real app, you'd check against your backend
-    // where you'd have proper role-based access control
-    const email = auth.currentUser?.email;
+    if (!auth.currentUser) return false;
     
-    if (!email) return false;
+    const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
     
-    // For this demo, we'll consider any user with an email containing "admin" as an admin
-    // In a real app, you'd check with your backend for proper role verification
-    return email.includes('admin');
+    if (userDoc.exists()) {
+      return userDoc.data().role === "admin";
+    }
+    
+    return false;
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;
