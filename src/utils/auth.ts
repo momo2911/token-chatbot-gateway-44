@@ -132,3 +132,21 @@ export async function purchaseTokens(
 export function onAuthStateChange(callback: (user: any) => void): () => void {
   return onAuthStateChanged(auth, callback);
 }
+
+// Check if current user is an admin
+export async function isAdmin(): Promise<boolean> {
+  try {
+    // This is a simple implementation. In a real app, you'd check against your backend
+    // where you'd have proper role-based access control
+    const email = auth.currentUser?.email;
+    
+    if (!email) return false;
+    
+    // For this demo, we'll consider any user with an email containing "admin" as an admin
+    // In a real app, you'd check with your backend for proper role verification
+    return email.includes('admin');
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return false;
+  }
+}
