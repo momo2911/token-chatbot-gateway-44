@@ -2,20 +2,35 @@
 const express = require('express');
 const { OpenAI } = require('openai');
 const router = express.Router();
+const ChatSession = require('../models/ChatSession');
 
 // Initialize OpenAI with your API key
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// In-memory storage for chat sessions (in a real app, use a database)
-const chatSessions = new Map();
-
 // Get chat history for a user
-router.get('/chat/history/:userId', (req, res) => {
-  const { userId } = req.params;
-  const userHistory = chatSessions.get(userId) || [];
-  res.json({ success: true, history: userHistory });
+router.get('/chat/history/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const chatSession = await ChatSession.findOne({ userId });
+    
+    if (!chatSession) {
+      return res.json({ success: true, history: [] });
+    }
+    
+    const history = chatSession.messages.map(msg => ({
+      role: msg.role,
+      content: msg.content,
+      timestamp: msg.timestamp
+    }));
+    
+    res.json({ success: true, history });
+  } catch (error) {
+    console.error('Error fetching chat history:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch chat history' });
+  }
 });
 
 // Endpoint to handle AI chat
@@ -51,14 +66,23 @@ router.post('/chat', async (req, res) => {
     
     const response = completion.choices[0].message.content;
     
-    // Update chat history
-    const userHistory = chatSessions.get(userId) || [];
-    const newMessages = [
-      ...userHistory,
+    // Update chat history in MongoDB
+    let chatSession = await ChatSession.findOne({ userId });
+    
+    if (!chatSession) {
+      chatSession = new ChatSession({ 
+        userId,
+        messages: []
+      });
+    }
+    
+    // Add new messages
+    chatSession.messages.push(
       { role: 'user', content: prompt, timestamp: new Date() },
       { role: 'assistant', content: response, timestamp: new Date() }
-    ];
-    chatSessions.set(userId, newMessages);
+    );
+    
+    await chatSession.save();
     
     // Calculate token usage
     const promptTokens = completion.usage.prompt_tokens;
