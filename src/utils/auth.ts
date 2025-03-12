@@ -1,7 +1,14 @@
 
-// This is a placeholder implementation. In a real application, this would interact with a real authentication system
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  updateProfile
+} from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
-// Simple token management for demo purposes
+// Token management for local storage backup
 export function saveAuthToken(token: string): void {
   localStorage.setItem('token', token);
 }
@@ -15,62 +22,89 @@ export function removeAuthToken(): void {
 }
 
 export function isAuthenticated(): boolean {
-  return !!getAuthToken();
+  return auth.currentUser !== null || !!getAuthToken();
 }
 
-// Mock login function
+// Firebase login function
 export async function login(
   email: string, 
   password: string
 ): Promise<{ success: boolean; token?: string; error?: string }> {
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // For demo: accept any login with a password of at least 6 characters
-      if (email && password && password.length >= 6) {
-        const token = `demo-token-${Math.random().toString(36).substring(2, 15)}`;
-        saveAuthToken(token);
-        resolve({ success: true, token });
-      } else {
-        resolve({ 
-          success: false, 
-          error: "Thông tin đăng nhập không hợp lệ"
-        });
-      }
-    }, 1000);
-  });
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const token = await userCredential.user.getIdToken();
+    saveAuthToken(token);
+    return { success: true, token };
+  } catch (error: any) {
+    console.error('Login error:', error);
+    let errorMessage = "Thông tin đăng nhập không hợp lệ";
+    
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      errorMessage = "Email hoặc mật khẩu không đúng";
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = "Quá nhiều lần thử đăng nhập. Vui lòng thử lại sau";
+    }
+    
+    return { success: false, error: errorMessage };
+  }
 }
 
-// Mock registration function
+// Firebase registration function
 export async function register(
   name: string,
   email: string,
   password: string
 ): Promise<{ success: boolean; token?: string; error?: string }> {
-  // Simulate API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // For demo: any valid-looking inputs are accepted
-      if (name && email && password && password.length >= 6) {
-        const token = `demo-token-${Math.random().toString(36).substring(2, 15)}`;
-        saveAuthToken(token);
-        resolve({ success: true, token });
-      } else {
-        resolve({ 
-          success: false, 
-          error: "Vui lòng điền đầy đủ thông tin và mật khẩu ít nhất 6 ký tự" 
-        });
-      }
-    }, 1000);
-  });
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    
+    // Update profile with the user's name
+    await updateProfile(userCredential.user, { 
+      displayName: name 
+    });
+    
+    const token = await userCredential.user.getIdToken();
+    saveAuthToken(token);
+    
+    // Initialize user data here if needed
+    
+    return { success: true, token };
+  } catch (error: any) {
+    console.error('Registration error:', error);
+    let errorMessage = "Đăng ký không thành công";
+    
+    if (error.code === 'auth/email-already-in-use') {
+      errorMessage = "Email đã được sử dụng";
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = "Email không hợp lệ";
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = "Mật khẩu quá yếu. Vui lòng sử dụng ít nhất 6 ký tự";
+    }
+    
+    return { success: false, error: errorMessage };
+  }
 }
 
-// Mock function to get user data
+// Firebase logout function
+export async function logout(): Promise<void> {
+  try {
+    await firebaseSignOut(auth);
+    removeAuthToken();
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
+}
+
+// Mock function to get user data - this would connect to your database in a real app
 export async function getUserData(): Promise<any> {
-  // In a real app, this would fetch the user's profile from an API
+  if (!auth.currentUser) {
+    return null;
+  }
+  
+  // In a real app, this would fetch the user's profile from your database
   return {
-    name: "Người dùng Demo",
-    email: "demo@example.com",
+    name: auth.currentUser.displayName || "Người dùng",
+    email: auth.currentUser.email,
     tokens: 100,
     plan: "Cơ bản",
     usageHistory: [
@@ -81,7 +115,7 @@ export async function getUserData(): Promise<any> {
   };
 }
 
-// Mock function to purchase tokens
+// Mock function to purchase tokens 
 export async function purchaseTokens(
   amount: number, 
   paymentMethod: string
@@ -96,4 +130,9 @@ export async function purchaseTokens(
       });
     }, 1500);
   });
+}
+
+// Set up auth state listener
+export function onAuthStateChange(callback: (user: any) => void): () => void {
+  return onAuthStateChanged(auth, callback);
 }

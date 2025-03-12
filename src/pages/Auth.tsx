@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login, register } from '@/utils/auth';
+import { login, register, isAuthenticated } from '@/utils/auth';
 import { useToast } from "@/hooks/use-toast";
 import { ArrowRight } from 'lucide-react';
 
@@ -13,6 +13,13 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate('/');
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { TokenBalance } from "./TokenBalance";
 import { 
   MessageCircle, 
   User, 
   LogOut, 
-  Coins,
   Menu,
   X
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { auth } from "@/lib/firebase";
+import { logout } from "@/utils/auth";
+import { toast } from "@/components/ui/sonner";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -20,13 +22,17 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
-  // Simulating user auth check
+  // Check Firebase authentication state
   useEffect(() => {
-    const hasToken = localStorage.getItem('token');
-    setIsLoggedIn(!!hasToken);
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setIsLoggedIn(!!user);
+    });
+    
+    return () => unsubscribe();
   }, []);
   
   const toggleMenu = () => {
@@ -35,6 +41,17 @@ export function Layout({ children }: LayoutProps) {
   
   const closeMenu = () => {
     setIsMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success("Đã đăng xuất thành công");
+      navigate("/auth");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Đã xảy ra lỗi khi đăng xuất");
+    }
   };
   
   const navigation = [
@@ -108,17 +125,13 @@ export function Layout({ children }: LayoutProps) {
                 <div className="mt-4 px-4 py-2">
                   <TokenBalance />
                 </div>
-                <Link
-                  to="/logout"
+                <button
                   className="flex items-center space-x-2 px-4 py-2 rounded-md text-destructive hover:bg-destructive/5 transition-all-200"
-                  onClick={() => {
-                    localStorage.removeItem('token');
-                    closeMenu();
-                  }}
+                  onClick={handleLogout}
                 >
                   <LogOut size={18} />
                   <span>Đăng xuất</span>
-                </Link>
+                </button>
               </>
             )}
           </div>
@@ -148,16 +161,13 @@ export function Layout({ children }: LayoutProps) {
             </nav>
             
             <div className="p-4 border-t border-border/40">
-              <Link
-                to="/logout"
+              <button
                 className="flex items-center space-x-2 px-4 py-2 rounded-md text-muted-foreground hover:bg-accent/5 transition-all-200"
-                onClick={() => {
-                  localStorage.removeItem('token');
-                }}
+                onClick={handleLogout}
               >
                 <LogOut size={18} />
                 <span>Đăng xuất</span>
-              </Link>
+              </button>
             </div>
           </aside>
         )}
