@@ -3,14 +3,15 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Firebase configuration - replace with your actual Firebase config
+// Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyC6_dDLUKZQAKHl0jNHmoqRbYOEG_H2wBw",
-  authDomain: "token-gateway-demo.firebaseapp.com",
-  projectId: "token-gateway-demo",
-  storageBucket: "token-gateway-demo.appspot.com",
-  messagingSenderId: "509956544958",
-  appId: "1:509956544958:web:f9b6605c8f91c76845b8d8"
+  apiKey: "AIzaSyC2AEvLCm2hs8UVtc2pIBD6fh164N4Y4Yg",
+  authDomain: "neobond-d690a.firebaseapp.com",
+  databaseURL: "https://neobond-d690a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "neobond-d690a",
+  storageBucket: "neobond-d690a.firebasestorage.app",
+  messagingSenderId: "764563208664",
+  appId: "1:764563208664:web:482cd48fcb29b61afedaad"
 };
 
 // Initialize Firebase

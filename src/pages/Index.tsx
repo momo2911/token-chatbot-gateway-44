@@ -1,147 +1,217 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
-import { ImageUploader } from '@/components/ImageUploader';
-import { TextInput } from '@/components/TextInput';
-import { ResponseDisplay, Message } from '@/components/ResponseDisplay';
-import { AIModel, getAIResponse, calculateTokenConsumption, estimateCost } from '@/utils/ai';
-import { isAuthenticated } from '@/utils/auth';
+import React, { useState, useEffect, useRef } from 'react';
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Layout } from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
-import { generateId } from '@/lib/utils';
-import { ModelSelector } from '@/components/ModelSelector';
-import { containsSensitiveInfo } from '@/utils/validation';
+import { Send, Loader2 } from 'lucide-react';
+import { useChat } from 'ai/react';
+import { useCompletion } from 'ai/react';
+import { useQuery } from "@tanstack/react-query";
+import { useUser } from '@/hooks/useUser';
+import { useTokenBalance } from '@/hooks/useTokenBalance';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
+import { useSettings } from '@/hooks/useSettings';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const Index = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedText, setExtractedText] = useState('');
-  const [selectedModel, setSelectedModel] = useState<AIModel>('gpt-4o-mini');
-  const navigate = useNavigate();
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
   const { toast } = useToast();
+  const { user } = useUser();
+  const { settings } = useSettings();
+  const { tokenBalance } = useTokenBalance();
+  const [apiError, setApiError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
+  const [isSpeechToTextEnabled, setIsSpeechToTextEnabled] = useState(false);
+  const {
+    messages,
+    input,
+    setInput,
+    handleInputChange,
+    handleSubmit: handleAISubmit,
+    isLoading,
+    setMessages
+  } = useChat({
+    api: "/api/chat",
+    onFinish: (message) => {
+      if (message.error) {
+        setApiError(message.error);
+      } else {
+        setApiError(null);
+      }
+    },
+  });
+  const { complete } = useCompletion({
+    api: '/api/completion',
+    onFinish: (message) => {
+      if (message.error) {
+        setApiError(message.error);
+      } else {
+        setApiError(null);
+      }
+    },
+  })
+  const {
+    startListening,
+    stopListening,
+    transcript,
+    isListening,
+    browserSupportsSpeechRecognition
+  } = useSpeechToText();
 
-  // Maximum message length
-  const MAX_MESSAGE_LENGTH = 2000;
-
+  // Load chat history from local storage on component mount
   useEffect(() => {
-    // Check if user is logged in
-    if (!isAuthenticated()) {
-      navigate('/auth');
+    const storedMessages = localStorage.getItem('chat-history');
+    if (storedMessages) {
+      try {
+        setMessages(JSON.parse(storedMessages));
+        setMessagesLoaded(true);
+      } catch (error) {
+        console.error("Error parsing chat history from local storage:", error);
+        toast({
+          title: "Lỗi",
+          description: "Có lỗi xảy ra khi tải lịch sử trò chuyện",
+          variant: "destructive", // Changed from "warning" to "destructive"
+        });
+      }
+    } else {
+      setMessagesLoaded(true);
     }
-  }, [navigate]);
+  }, [setMessages, toast]);
 
-  const handleSendMessage = async (text: string) => {
-    if (isProcessing) return;
-    
-    // Additional validation for sensitive information
-    if (containsSensitiveInfo(text)) {
+  // Save chat history to local storage whenever messages change
+  useEffect(() => {
+    if (messagesLoaded) {
+      localStorage.setItem('chat-history', JSON.stringify(messages));
+    }
+  }, [messages, messagesLoaded]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Handle submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    if (!user) {
+      setIsAlertDialogOpen(true);
+      return;
+    }
+    if (tokenBalance === 0) {
       toast({
-        title: "Chú ý",
-        description: "Nội dung tin nhắn có chứa thông tin nhạy cảm. Vui lòng kiểm tra lại.",
-        variant: "destructive",
+        title: "Hết token",
+        description: "Bạn đã hết token. Vui lòng nạp thêm token để tiếp tục sử dụng.",
       });
       return;
     }
-    
-    const userMessage: Message = {
-      id: generateId(),
-      role: 'user',
-      content: text,
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setIsProcessing(true);
-    
-    try {
-      // Calculate token consumption
-      const tokenCount = calculateTokenConsumption(text);
-      const cost = estimateCost(tokenCount, selectedModel);
-      
-      console.log(`Estimated token consumption: ${tokenCount}`);
-      console.log(`Estimated cost: ${cost} tokens`);
-      console.log(`Using model: ${selectedModel}`);
-      
-      // Get AI response
-      const response = await getAIResponse(text, messages, selectedModel);
-      
-      const aiMessage: Message = {
-        id: generateId(),
-        role: 'assistant',
-        content: response,
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error getting AI response:', error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể nhận phản hồi từ AI. Vui lòng thử lại sau.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-      setExtractedText('');
+    if (settings?.isStream) {
+      e.preventDefault();
+      complete(input);
+      setInput('');
+    } else {
+      handleAISubmit(e);
     }
   };
 
-  const handleTextExtracted = (text: string) => {
-    // Limit extracted text length
-    if (text.length > MAX_MESSAGE_LENGTH) {
-      setExtractedText(text.substring(0, MAX_MESSAGE_LENGTH));
-      toast({
-        title: "Văn bản quá dài",
-        description: `Văn bản đã được cắt ngắn vì vượt quá giới hạn ${MAX_MESSAGE_LENGTH} ký tự.`,
-        variant: "warning",
-      });
-    } else {
-      setExtractedText(text);
-    }
-  };
+  // Focus on input on load
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   return (
     <Layout>
-      <div className="h-[calc(100vh-6rem)] flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <div className="inline-block">
-            <h3 className="text-xs font-medium px-2.5 py-1 rounded-full bg-secondary text-muted-foreground uppercase tracking-wider">
-              AI Token Gateway
-            </h3>
+      <div className="flex flex-col h-full">
+        <div className="flex-1 overflow-y-auto">
+          <div className="py-4">
+            {messages.map((message) => (
+              <div key={message.id} className={`mb-2 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
+                <div className={`inline-block p-3 rounded-lg max-w-2/3 break-words ${message.role === 'user' ? 'bg-blue-500 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}`}>
+                  {message.content}
+                </div>
+              </div>
+            ))}
+            {apiError && (
+              <div className="text-red-500 text-center">{apiError}</div>
+            )}
+            <div ref={bottomRef} />
           </div>
-          <ModelSelector 
-            selectedModel={selectedModel}
-            onModelChange={setSelectedModel}
-            disabled={isProcessing}
-          />
         </div>
-        <h1 className="text-3xl font-bold mb-2">Cuộc trò chuyện</h1>
-        <p className="text-muted-foreground mb-6">
-          Tải lên hình ảnh hoặc nhập trực tiếp tin nhắn của bạn
-        </p>
-        
-        {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto mb-6 pr-1">
-          <ResponseDisplay 
-            messages={messages} 
-            isLoading={isProcessing}
-          />
-        </div>
-        
-        {/* Input Area */}
-        <div className="space-y-4">
-          <ImageUploader 
-            onTextExtracted={handleTextExtracted} 
-            className="mb-4"
-          />
-          
-          <TextInput 
-            onSend={handleSendMessage} 
-            initialText={extractedText}
-            disabled={isProcessing}
-            maxLength={MAX_MESSAGE_LENGTH}
-          />
+
+        <div className="py-4">
+          <form onSubmit={handleSubmit} className="relative">
+            <Input
+              ref={inputRef}
+              placeholder="Nhập tin nhắn..."
+              value={isSpeechToTextEnabled ? transcript : input}
+              onChange={isSpeechToTextEnabled ? () => { } : handleInputChange}
+              className="pr-12"
+              disabled={isLoading}
+            />
+            <div className="absolute right-2 top-2 flex items-center space-x-2">
+              {browserSupportsSpeechRecognition && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    if (isSpeechToTextEnabled) {
+                      stopListening();
+                    } else {
+                      startListening();
+                    }
+                    setIsSpeechToTextEnabled(!isSpeechToTextEnabled);
+                  }}
+                  disabled={isLoading}
+                >
+                  {isListening ? "Dừng" : "Nói"}
+                </Button>
+              )}
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Gửi
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
+
+      <AlertDialog open={isAlertDialogOpen} onOpenChange={setIsAlertDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn cần đăng nhập</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn cần đăng nhập để sử dụng tính năng này.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Huỷ</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setIsAlertDialogOpen(false);
+              toast({
+                title: "Chuyển hướng",
+                description: "Bạn sẽ được chuyển hướng đến trang đăng nhập.",
+              });
+              setTimeout(() => {
+                window.location.href = "/auth";
+              }, 500);
+            }}>Đăng nhập</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
