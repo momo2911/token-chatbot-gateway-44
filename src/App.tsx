@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -12,15 +12,19 @@ import Admin from "./pages/Admin";
 import UserData from "./pages/UserData";
 import NotFound from "./pages/NotFound";
 import { isAuthenticated, onAuthStateChange, refreshAuthToken, isTokenExpired } from "./utils/auth";
-import { auth } from "./lib/firebase";
+import { auth, db } from "./lib/firebase";
 import { useToast } from "./hooks/use-toast";
+import { doc, getDoc } from "firebase/firestore";
 
 const queryClient = new QueryClient();
 
-const App = () => {
+// Component that needs access to router hooks
+const AppContent = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState<any>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Handle authentication state changes
@@ -48,7 +52,7 @@ const App = () => {
       unsubscribe();
       clearInterval(refreshInterval);
     };
-  }, []);
+  }, [navigate, toast]);
 
   // Protected route component
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -112,38 +116,44 @@ const App = () => {
   };
 
   return (
+    <Routes>
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Index />
+        </ProtectedRoute>
+      } />
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/account" element={
+        <ProtectedRoute>
+          <Account />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin" element={
+        <AdminRoute>
+          <Admin />
+        </AdminRoute>
+      } />
+      <Route path="/user-data" element={
+        <ProtectedRoute>
+          <UserData />
+        </ProtectedRoute>
+      } />
+      <Route path="/logout" element={
+        <Navigate to="/auth" replace={true} />
+      } />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
+const App = () => {
+  return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            } />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/account" element={
-              <ProtectedRoute>
-                <Account />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin" element={
-              <AdminRoute>
-                <Admin />
-              </AdminRoute>
-            } />
-            <Route path="/user-data" element={
-              <ProtectedRoute>
-                <UserData />
-              </ProtectedRoute>
-            } />
-            <Route path="/logout" element={
-              <Navigate to="/auth" replace={true} />
-            } />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AppContent />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
