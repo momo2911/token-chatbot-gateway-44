@@ -1,4 +1,3 @@
-
 // This file serves as a placeholder for the API routes that would normally be handled by a backend server
 // In a production environment, these would be actual API endpoints
 
@@ -59,3 +58,9 @@ export const completionRequest = async (prompt: string) => {
     throw error;
   }
 };
+
+// Add the following interface to fix type issues
+export interface ChatResponse {
+  content?: string;
+  error?: string;
+}

@@ -1,12 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
 import { Send, Loader2 } from 'lucide-react';
-import { useChat } from 'ai/react';
-import { useCompletion } from 'ai/react';
-import { useQuery } from "@tanstack/react-query";
 import { useUser } from '@/hooks/useUser';
 import { useTokenBalance } from '@/hooks/useTokenBalance';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
@@ -23,6 +21,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+// Define interfaces to fix the type errors
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface ChatResponse {
+  error?: string;
+}
+
 const Index = () => {
   const [messagesLoaded, setMessagesLoaded] = useState(false);
   const { toast } = useToast();
@@ -34,42 +43,10 @@ const Index = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
   const [isSpeechToTextEnabled, setIsSpeechToTextEnabled] = useState(false);
-  const {
-    messages,
-    input,
-    setInput,
-    handleInputChange,
-    handleSubmit: handleAISubmit,
-    isLoading,
-    setMessages
-  } = useChat({
-    api: "/api/chat",
-    onFinish: (message) => {
-      if (message.error) {
-        setApiError(message.error);
-      } else {
-        setApiError(null);
-      }
-    },
-  });
-  const { complete } = useCompletion({
-    api: '/api/completion',
-    onFinish: (message) => {
-      if (message.error) {
-        setApiError(message.error);
-      } else {
-        setApiError(null);
-      }
-    },
-  })
-  const {
-    startListening,
-    stopListening,
-    transcript,
-    isListening,
-    browserSupportsSpeechRecognition
-  } = useSpeechToText();
-
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
   // Load chat history from local storage on component mount
   useEffect(() => {
     const storedMessages = localStorage.getItem('chat-history');
@@ -82,13 +59,13 @@ const Index = () => {
         toast({
           title: "Lỗi",
           description: "Có lỗi xảy ra khi tải lịch sử trò chuyện",
-          variant: "destructive", // Changed from "warning" to "destructive"
+          variant: "destructive",
         });
       }
     } else {
       setMessagesLoaded(true);
     }
-  }, [setMessages, toast]);
+  }, [toast]);
 
   // Save chat history to local storage whenever messages change
   useEffect(() => {
@@ -101,6 +78,101 @@ const Index = () => {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Manual implementation of chat functionality
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleAISubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    
+    // Add user message
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input
+    };
+    
+    setMessages((prev) => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+    
+    try {
+      // Simulate API call
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: input }),
+      });
+      
+      const data = await response.json() as ChatResponse;
+      
+      if (data.error) {
+        setApiError(data.error);
+      } else {
+        setApiError(null);
+        // Add assistant response
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.content || "I'm sorry, I couldn't process your request."
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      }
+    } catch (error) {
+      setApiError("Failed to connect to the server.");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const complete = async (text: string) => {
+    // Add user message
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: text
+    };
+    
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+    
+    try {
+      // Simulate API call
+      const response = await fetch('/api/completion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: text }),
+      });
+      
+      const data = await response.json() as ChatResponse;
+      
+      if (data.error) {
+        setApiError(data.error);
+      } else {
+        setApiError(null);
+        // Add assistant response
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.content || "I'm sorry, I couldn't process your request."
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      }
+    } catch (error) {
+      setApiError("Failed to connect to the server.");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Handle submit
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,6 +195,15 @@ const Index = () => {
       handleAISubmit(e);
     }
   };
+
+  // Speech to text functionality
+  const {
+    startListening,
+    stopListening,
+    transcript,
+    isListening,
+    browserSupportsSpeechRecognition
+  } = useSpeechToText();
 
   // Focus on input on load
   useEffect(() => {
