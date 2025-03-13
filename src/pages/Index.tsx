@@ -5,15 +5,17 @@ import { Layout } from '@/components/Layout';
 import { ImageUploader } from '@/components/ImageUploader';
 import { TextInput } from '@/components/TextInput';
 import { ResponseDisplay, Message } from '@/components/ResponseDisplay';
-import { getAIResponse, calculateTokenConsumption, estimateCost } from '@/utils/ai';
+import { AIModel, getAIResponse, calculateTokenConsumption, estimateCost } from '@/utils/ai';
 import { isAuthenticated } from '@/utils/auth';
 import { useToast } from "@/hooks/use-toast";
 import { generateId } from '@/lib/utils';
+import { ModelSelector } from '@/components/ModelSelector';
 
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedText, setExtractedText] = useState('');
+  const [selectedModel, setSelectedModel] = useState<AIModel>('gpt-4o-mini');
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -40,13 +42,14 @@ const Index = () => {
     try {
       // Calculate token consumption
       const tokenCount = calculateTokenConsumption(text);
-      const cost = estimateCost(tokenCount);
+      const cost = estimateCost(tokenCount, selectedModel);
       
       console.log(`Estimated token consumption: ${tokenCount}`);
       console.log(`Estimated cost: ${cost} tokens`);
+      console.log(`Using model: ${selectedModel}`);
       
       // Get AI response
-      const response = await getAIResponse(text, messages);
+      const response = await getAIResponse(text, messages, selectedModel);
       
       const aiMessage: Message = {
         id: generateId(),
@@ -76,10 +79,17 @@ const Index = () => {
   return (
     <Layout>
       <div className="h-[calc(100vh-6rem)] flex flex-col">
-        <div className="inline-block mb-4">
-          <h3 className="text-xs font-medium px-2.5 py-1 rounded-full bg-secondary text-muted-foreground uppercase tracking-wider">
-            AI Token Gateway
-          </h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="inline-block">
+            <h3 className="text-xs font-medium px-2.5 py-1 rounded-full bg-secondary text-muted-foreground uppercase tracking-wider">
+              AI Token Gateway
+            </h3>
+          </div>
+          <ModelSelector 
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+            disabled={isProcessing}
+          />
         </div>
         <h1 className="text-3xl font-bold mb-2">Cuộc trò chuyện</h1>
         <p className="text-muted-foreground mb-6">
