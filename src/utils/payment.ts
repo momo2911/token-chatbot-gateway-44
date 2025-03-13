@@ -1,8 +1,5 @@
 
-import { getAuthToken } from './auth';
-
-// API URL based on environment
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/payments';
+import { secureApiPost, secureApiGet } from './api';
 
 export interface PaymentHistoryItem {
   id: string;
@@ -24,27 +21,8 @@ export async function processPayment(params: ProcessPaymentParams): Promise<{
   error?: string;
 }> {
   try {
-    // Get the current user ID
-    const userId = 'current-user'; // In a real app, get this from auth
-
-    const response = await fetch(`${API_URL}/process`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAuthToken()}`
-      },
-      body: JSON.stringify({
-        ...params,
-        userId
-      }),
-    });
+    const data = await secureApiPost('/payments/process', params);
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Payment processing failed');
-    }
-    
-    const data = await response.json();
     return {
       success: true,
       transactionId: data.transactionId
@@ -60,20 +38,7 @@ export async function processPayment(params: ProcessPaymentParams): Promise<{
 
 export async function getPaymentHistory(): Promise<PaymentHistoryItem[]> {
   try {
-    // Get the current user ID
-    const userId = 'current-user'; // In a real app, get this from auth
-    
-    const response = await fetch(`${API_URL}/history/${userId}`, {
-      headers: {
-        'Authorization': `Bearer ${getAuthToken()}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch payment history');
-    }
-    
-    const data = await response.json();
+    const data = await secureApiGet('/payments/history');
     return data.history || [];
   } catch (error) {
     console.error('Error fetching payment history:', error);

@@ -1,9 +1,6 @@
 
 import { Message } from "@/components/ResponseDisplay";
-import { auth } from "@/lib/firebase";
-
-// API URL based on environment
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/ai';
+import { secureApiPost, secureApiGet } from "./api";
 
 // Get AI response from our backend
 export async function getAIResponse(
@@ -15,33 +12,13 @@ export async function getAIResponse(
   console.log("History:", history);
   
   try {
-    // Get current user ID from Firebase Auth
-    const userId = auth.currentUser?.uid;
-    if (!userId) {
-      throw new Error('User not authenticated');
-    }
-
-    const response = await fetch(`${API_URL}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt,
-        history: history.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        })),
-        userId
-      }),
+    const data = await secureApiPost('/ai/chat', {
+      prompt,
+      history: history.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to get AI response');
-    }
-    
-    const data = await response.json();
     
     if (data.tokenUsage) {
       console.log('Token usage:', data.tokenUsage);
@@ -57,17 +34,7 @@ export async function getAIResponse(
 // Get chat history for current user
 export async function getChatHistory(): Promise<Message[]> {
   try {
-    const userId = auth.currentUser?.uid;
-    if (!userId) {
-      throw new Error('User not authenticated');
-    }
-
-    const response = await fetch(`${API_URL}/chat/history/${userId}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch chat history');
-    }
-
-    const data = await response.json();
+    const data = await secureApiGet('/ai/chat/history');
     return data.history || [];
   } catch (error) {
     console.error('Error fetching chat history:', error);

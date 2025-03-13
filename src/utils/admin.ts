@@ -1,4 +1,5 @@
-import { auth, db } from '@/lib/firebase';
+
+import { secureApiGet, secureApiPut, secureApiDelete } from './api';
 import { 
   collection, 
   getDocs, 
@@ -9,6 +10,7 @@ import {
   query, 
   where 
 } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 // Get all users - admin only
 export async function getAllUsers(): Promise<any[]> {

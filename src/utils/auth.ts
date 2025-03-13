@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  getIdToken
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -27,6 +28,36 @@ export function isAuthenticated(): boolean {
   return auth.currentUser !== null || !!getAuthToken();
 }
 
+// Refresh the auth token
+export async function refreshAuthToken(): Promise<string | null> {
+  try {
+    if (!auth.currentUser) return null;
+    const token = await auth.currentUser.getIdToken(true); // Force refresh
+    saveAuthToken(token);
+    return token;
+  } catch (error) {
+    console.error("Error refreshing token:", error);
+    return null;
+  }
+}
+
+// Token validity check
+export function isTokenExpired(): boolean {
+  const token = getAuthToken();
+  if (!token) return true;
+  
+  try {
+    // Decode JWT payload - tokens are in format: header.payload.signature
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Check if token is expired
+    const expirationTime = payload.exp * 1000; // Convert to milliseconds
+    return Date.now() >= expirationTime;
+  } catch (error) {
+    console.error("Error checking token expiration:", error);
+    return true; // Consider expired if there's an error
+  }
+}
+
 // Firebase login function
 export async function login(
   email: string, 
@@ -45,6 +76,8 @@ export async function login(
       errorMessage = "Email hoặc mật khẩu không đúng";
     } else if (error.code === 'auth/too-many-requests') {
       errorMessage = "Quá nhiều lần thử đăng nhập. Vui lòng thử lại sau";
+    } else if (error.code === 'auth/invalid-credential') {
+      errorMessage = "Thông tin đăng nhập không hợp lệ";
     }
     
     return { success: false, error: errorMessage };
