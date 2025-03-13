@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2, Mic, MicOff } from 'lucide-react';
+import { Send, Loader2, Mic, MicOff, Image as ImageIcon } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { useTokenBalance } from '@/hooks/useTokenBalance';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
@@ -19,12 +19,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { ImageUploader } from '@/components/ImageUploader';
 
 // Define interfaces to fix the type errors
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  imageUrl?: string;
 }
 
 interface ChatResponse {
@@ -46,6 +48,8 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isImageUploaderOpen, setIsImageUploaderOpen] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   
   // Load chat history from local storage on component mount
   useEffect(() => {
@@ -86,17 +90,19 @@ const Index = () => {
 
   const handleAISubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() && !uploadedImage) return;
     
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input
+      content: input,
+      imageUrl: uploadedImage || undefined
     };
     
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
+    setUploadedImage(null);
     setIsLoading(true);
     
     try {
@@ -106,7 +112,10 @@ const Index = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ 
+          message: input,
+          imageUrl: uploadedImage 
+        }),
       });
       
       const data = await response.json() as ChatResponse;
@@ -136,10 +145,12 @@ const Index = () => {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: text
+      content: text,
+      imageUrl: uploadedImage || undefined
     };
     
     setMessages((prev) => [...prev, userMessage]);
+    setUploadedImage(null);
     setIsLoading(true);
     
     try {
@@ -149,7 +160,10 @@ const Index = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ 
+          prompt: text,
+          imageUrl: uploadedImage
+        }),
       });
       
       const data = await response.json() as ChatResponse;
@@ -196,6 +210,16 @@ const Index = () => {
     }
   };
 
+  // Handle image upload
+  const handleImageUpload = (imageUrl: string) => {
+    setUploadedImage(imageUrl);
+    setIsImageUploaderOpen(false);
+    toast({
+      title: "Tải lên thành công",
+      description: "Hình ảnh đã được tải lên và sẵn sàng để gửi.",
+    });
+  };
+
   // Speech to text functionality
   const {
     startListening,
@@ -238,6 +262,15 @@ const Index = () => {
                       }`}
                   >
                     <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                    {message.imageUrl && (
+                      <div className="mt-2">
+                        <img 
+                          src={message.imageUrl} 
+                          alt="Uploaded" 
+                          className="max-w-full max-h-64 rounded-md object-contain"
+                        />
+                      </div>
+                    )}
                     <div 
                       className={`absolute w-3 h-3 bottom-0 
                         ${message.role === 'user' 
@@ -265,6 +298,26 @@ const Index = () => {
 
         <div className="border-t py-4 px-4">
           <div className="max-w-3xl mx-auto">
+            {uploadedImage && (
+              <div className="mb-2 relative">
+                <img 
+                  src={uploadedImage} 
+                  alt="Preview" 
+                  className="h-20 rounded-md object-contain" 
+                />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-1 right-1 h-6 w-6 rounded-full"
+                  onClick={() => setUploadedImage(null)}
+                >
+                  <span className="sr-only">Xóa ảnh</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6L6 18M6 6l12 12"></path>
+                  </svg>
+                </Button>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="relative">
               <Input
                 ref={inputRef}
@@ -275,6 +328,16 @@ const Index = () => {
                 disabled={isLoading}
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setIsImageUploaderOpen(true)}
+                  disabled={isLoading}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ImageIcon className="h-5 w-5" />
+                </Button>
                 {browserSupportsSpeechRecognition && (
                   <Button
                     type="button"
@@ -297,7 +360,7 @@ const Index = () => {
                 <Button 
                   type="submit" 
                   size="icon"
-                  disabled={isLoading}
+                  disabled={isLoading || (!input.trim() && !uploadedImage)}
                   className="rounded-full"
                 >
                   {isLoading ? (
@@ -335,6 +398,12 @@ const Index = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImageUploader 
+        isOpen={isImageUploaderOpen} 
+        onClose={() => setIsImageUploaderOpen(false)}
+        onUpload={handleImageUpload}
+      />
     </Layout>
   );
 };
