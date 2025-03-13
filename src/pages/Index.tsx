@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
@@ -36,8 +35,8 @@ const Index = () => {
     // Additional validation for sensitive information
     if (containsSensitiveInfo(text)) {
       toast({
-        title: "Cảnh báo bảo mật",
-        description: "Tin nhắn của bạn có thể chứa thông tin nhạy cảm (như thẻ tín dụng hoặc số an sinh xã hội). Vui lòng không chia sẻ dữ liệu cá nhân.",
+        title: "Chú ý",
+        description: "Nội dung tin nhắn có chứa thông tin nhạy cảm. Vui lòng kiểm tra lại.",
         variant: "destructive",
       });
       return;
