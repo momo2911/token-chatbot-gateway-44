@@ -18,6 +18,7 @@ interface LoginFormProps {
   MAX_LOGIN_ATTEMPTS: number;
   handleSubmit: (e: React.FormEvent) => Promise<void>;
   createAdminUser: () => Promise<void>;
+  onForgotPassword: () => void;
 }
 
 const LoginForm = ({
@@ -30,7 +31,8 @@ const LoginForm = ({
   loginAttempts,
   MAX_LOGIN_ATTEMPTS,
   handleSubmit,
-  createAdminUser
+  createAdminUser,
+  onForgotPassword
 }: LoginFormProps) => {
   return (
     <>
@@ -47,17 +49,30 @@ const LoginForm = ({
           disabled={isLoading}
         />
         
-        <FormInput
-          id="password"
-          label="Mật khẩu"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="password"
-          placeholder="••••••••"
-          error={errors.password}
-          required
-          disabled={isLoading}
-        />
+        <div className="space-y-1">
+          <FormInput
+            id="password"
+            label="Mật khẩu"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            placeholder="••••••••"
+            error={errors.password}
+            required
+            disabled={isLoading}
+          />
+          
+          <div className="text-right">
+            <button 
+              type="button"
+              onClick={onForgotPassword}
+              className="text-xs text-accent hover:underline"
+              disabled={isLoading}
+            >
+              Quên mật khẩu?
+            </button>
+          </div>
+        </div>
         
         {loginAttempts > 0 && (
           <div className="text-xs text-muted-foreground text-right">

@@ -5,10 +5,15 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   updateProfile,
-  getIdToken
+  getIdToken,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  verifyBeforeUpdateEmail,
+  confirmPasswordReset,
+  applyActionCode
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // Token management for local storage backup
@@ -62,9 +67,21 @@ export function isTokenExpired(): boolean {
 export async function login(
   email: string, 
   password: string
-): Promise<{ success: boolean; token?: string; error?: string }> {
+): Promise<{ success: boolean; token?: string; error?: string; needsVerification?: boolean }> {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    
+    // Check if email is verified
+    const isVerified = userCredential.user.emailVerified;
+    
+    if (!isVerified) {
+      return { 
+        success: false, 
+        error: "Email chưa được xác thực. Vui lòng kiểm tra hộp thư để xác thực.", 
+        needsVerification: true 
+      };
+    }
+    
     const token = await userCredential.user.getIdToken();
     saveAuthToken(token);
     return { success: true, token };
@@ -98,6 +115,9 @@ export async function register(
       displayName: name 
     });
     
+    // Send email verification
+    await sendEmailVerification(userCredential.user);
+    
     const token = await userCredential.user.getIdToken();
     saveAuthToken(token);
     
@@ -107,10 +127,14 @@ export async function register(
       email,
       role: "user", // Default role for new users
       tokens: 100, // Initial tokens
-      createdAt: new Date()
+      createdAt: new Date(),
+      emailVerified: false
     });
     
-    return { success: true, token };
+    return { 
+      success: true, 
+      token 
+    };
   } catch (error: any) {
     console.error('Registration error:', error);
     let errorMessage = "Đăng ký không thành công";
@@ -121,6 +145,112 @@ export async function register(
       errorMessage = "Email không hợp lệ";
     } else if (error.code === 'auth/weak-password') {
       errorMessage = "Mật khẩu quá yếu. Vui lòng sử dụng ít nhất 6 ký tự";
+    }
+    
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Email verification check
+export async function checkEmailVerification(): Promise<boolean> {
+  try {
+    if (!auth.currentUser) return false;
+    
+    // Force refresh user to get the latest emailVerified status
+    await auth.currentUser.reload();
+    
+    return auth.currentUser.emailVerified;
+  } catch (error) {
+    console.error('Error checking email verification:', error);
+    return false;
+  }
+}
+
+// Resend verification email
+export async function resendVerificationEmail(): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!auth.currentUser) {
+      return { success: false, error: "Bạn cần đăng nhập trước" };
+    }
+    
+    await sendEmailVerification(auth.currentUser);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error sending verification email:', error);
+    return { 
+      success: false, 
+      error: "Không thể gửi email xác thực. Vui lòng thử lại sau."
+    };
+  }
+}
+
+// Send password reset email
+export async function sendResetPasswordEmail(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error sending reset email:', error);
+    let errorMessage = "Không thể gửi email đặt lại mật khẩu";
+    
+    if (error.code === 'auth/user-not-found') {
+      errorMessage = "Không tìm thấy tài khoản với email này";
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = "Email không hợp lệ";
+    }
+    
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Confirm password reset (with code and new password)
+export async function confirmResetPassword(
+  code: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await confirmPasswordReset(auth, code, newPassword);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error confirming password reset:', error);
+    let errorMessage = "Không thể đặt lại mật khẩu";
+    
+    if (error.code === 'auth/invalid-action-code') {
+      errorMessage = "Mã xác thực không hợp lệ hoặc đã hết hạn";
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = "Mật khẩu quá yếu. Vui lòng sử dụng ít nhất 6 ký tự";
+    }
+    
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Apply verification code (for email verification)
+export async function verifyEmail(
+  code: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await applyActionCode(auth, code);
+    
+    // Update user document in Firestore
+    if (auth.currentUser) {
+      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+        emailVerified: true
+      });
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error verifying email:', error);
+    let errorMessage = "Không thể xác thực email";
+    
+    if (error.code === 'auth/invalid-action-code') {
+      errorMessage = "Mã xác thực không hợp lệ hoặc đã hết hạn";
     }
     
     return { success: false, error: errorMessage };

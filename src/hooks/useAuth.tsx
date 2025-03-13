@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { login, register, isAuthenticated } from '@/utils/auth';
+import { login, register, isAuthenticated, checkEmailVerification } from '@/utils/auth';
 import { useToast } from "@/hooks/use-toast";
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { useLoginAttempts } from '@/hooks/useLoginAttempts';
@@ -14,6 +14,8 @@ export const useAuth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showVerifyEmail, setShowVerifyEmail] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -72,21 +74,30 @@ export const useAuth = () => {
         
         if (!result.success) {
           incrementLoginAttempts();
+          
+          // Check if this is due to unverified email
+          if (result.needsVerification) {
+            setShowVerifyEmail(true);
+          }
         } else {
           // Reset login attempts on successful login
           resetLoginAttempts();
         }
       } else {
         result = await register(name, email, password);
+        
+        if (result.success) {
+          setShowVerifyEmail(true);
+        }
       }
       
-      if (result.success) {
+      if (result.success && !showVerifyEmail) {
         toast({
           title: isLogin ? "Đăng nhập thành công" : "Đăng ký thành công",
           description: "Chào mừng bạn đến với Token Gateway!",
         });
         navigate(redirectPath);
-      } else {
+      } else if (!result.success && !showVerifyEmail) {
         toast({
           title: "Lỗi",
           description: result.error,
@@ -115,6 +126,17 @@ export const useAuth = () => {
     if (!isLogin) {
       setPasswordConfirm('');
     }
+    setShowResetPassword(false);
+    setShowVerifyEmail(false);
+  };
+  
+  const handleForgotPassword = () => {
+    setShowResetPassword(true);
+  };
+  
+  const handleBackToLogin = () => {
+    setShowResetPassword(false);
+    setShowVerifyEmail(false);
   };
 
   return {
@@ -132,9 +154,13 @@ export const useAuth = () => {
     errors,
     loginAttempts,
     MAX_LOGIN_ATTEMPTS,
+    showResetPassword,
+    showVerifyEmail,
     handleSubmit,
     createAdminUser,
     getRemainingLockTime,
-    toggleAuthMode
+    toggleAuthMode,
+    handleForgotPassword,
+    handleBackToLogin
   };
 };
