@@ -1,4 +1,3 @@
-
 import { auth, db } from '@/lib/firebase';
 import { 
   collection, 
@@ -102,6 +101,23 @@ export async function getAllTransactions(): Promise<any[]> {
     }));
   } catch (error) {
     console.error('Error fetching transactions:', error);
+    return [];
+  }
+}
+
+// Get chat sessions for the current user
+export async function getUserChatSessions(userId: string): Promise<any[]> {
+  try {
+    const chatSessionsSnapshot = await getDocs(
+      query(collection(db, "chatSessions"), where("userId", "==", userId))
+    );
+    
+    return chatSessionsSnapshot.docs.map(doc => ({
+      _id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error fetching user chat sessions:', error);
     return [];
   }
 }

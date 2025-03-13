@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import UserData from "./pages/UserData";
 import NotFound from "./pages/NotFound";
 import { isAuthenticated, onAuthStateChange, removeAuthToken } from "./utils/auth";
 import { auth } from "./lib/firebase";
@@ -28,7 +28,6 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
-  // Simple auth-protected route component
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     if (!authChecked) {
       return <div className="flex items-center justify-center min-h-screen">
@@ -64,6 +63,11 @@ const App = () => {
             <Route path="/admin" element={
               <ProtectedRoute>
                 <Admin />
+              </ProtectedRoute>
+            } />
+            <Route path="/user-data" element={
+              <ProtectedRoute>
+                <UserData />
               </ProtectedRoute>
             } />
             <Route path="/logout" element={

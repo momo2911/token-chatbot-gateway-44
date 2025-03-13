@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, Users, MessageSquare, CreditCard, Home } from 'lucide-react';
+import { LogOut, Users, MessageSquare, CreditCard, Home, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TokenBalance } from '@/components/TokenBalance';
 import { logout } from '@/utils/auth';
@@ -30,6 +30,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { path: '/admin', label: 'Users', icon: Users },
     { path: '/admin?tab=chat-sessions', label: 'Chat Sessions', icon: MessageSquare },
     { path: '/admin?tab=transactions', label: 'Transactions', icon: CreditCard },
+    { path: '/user-data', label: 'My Data', icon: User },
   ];
 
   return (
