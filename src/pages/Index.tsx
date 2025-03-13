@@ -10,6 +10,7 @@ import { isAuthenticated } from '@/utils/auth';
 import { useToast } from "@/hooks/use-toast";
 import { generateId } from '@/lib/utils';
 import { ModelSelector } from '@/components/ModelSelector';
+import { containsSensitiveInfo } from '@/utils/validation';
 
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -18,6 +19,9 @@ const Index = () => {
   const [selectedModel, setSelectedModel] = useState<AIModel>('gpt-4o-mini');
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Maximum message length
+  const MAX_MESSAGE_LENGTH = 2000;
 
   useEffect(() => {
     // Check if user is logged in
@@ -28,6 +32,16 @@ const Index = () => {
 
   const handleSendMessage = async (text: string) => {
     if (isProcessing) return;
+    
+    // Additional validation for sensitive information
+    if (containsSensitiveInfo(text)) {
+      toast({
+        title: "Cảnh báo bảo mật",
+        description: "Tin nhắn của bạn có thể chứa thông tin nhạy cảm (như thẻ tín dụng hoặc số an sinh xã hội). Vui lòng không chia sẻ dữ liệu cá nhân.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const userMessage: Message = {
       id: generateId(),
@@ -73,7 +87,17 @@ const Index = () => {
   };
 
   const handleTextExtracted = (text: string) => {
-    setExtractedText(text);
+    // Limit extracted text length
+    if (text.length > MAX_MESSAGE_LENGTH) {
+      setExtractedText(text.substring(0, MAX_MESSAGE_LENGTH));
+      toast({
+        title: "Văn bản quá dài",
+        description: `Văn bản đã được cắt ngắn vì vượt quá giới hạn ${MAX_MESSAGE_LENGTH} ký tự.`,
+        variant: "warning",
+      });
+    } else {
+      setExtractedText(text);
+    }
   };
 
   return (
@@ -115,6 +139,7 @@ const Index = () => {
             onSend={handleSendMessage} 
             initialText={extractedText}
             disabled={isProcessing}
+            maxLength={MAX_MESSAGE_LENGTH}
           />
         </div>
       </div>

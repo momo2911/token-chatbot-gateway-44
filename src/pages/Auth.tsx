@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { login, register, isAuthenticated } from '@/utils/auth';
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight, Shield } from 'lucide-react';
+import { ArrowRight, Shield, AlertCircle } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { isValidEmail } from '@/utils/validation';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,6 +18,12 @@ const Auth = () => {
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [lockTime, setLockTime] = useState<number | null>(null);
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+    passwordConfirm?: string;
+  }>({});
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -86,6 +93,61 @@ const Auth = () => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: {
+      name?: string;
+      email?: string;
+      password?: string;
+      passwordConfirm?: string;
+    } = {};
+    let isValid = true;
+
+    // Email validation
+    if (!email.trim()) {
+      newErrors.email = "Email là bắt buộc";
+      isValid = false;
+    } else if (!isValidEmail(email)) {
+      newErrors.email = "Email không hợp lệ";
+      isValid = false;
+    }
+
+    // Password validation
+    if (!password) {
+      newErrors.password = "Mật khẩu là bắt buộc";
+      isValid = false;
+    } else if (password.length < 6) {
+      newErrors.password = "Mật khẩu cần có ít nhất 6 ký tự";
+      isValid = false;
+    }
+
+    // Registration specific validations
+    if (!isLogin) {
+      // Name validation
+      if (!name.trim()) {
+        newErrors.name = "Họ tên là bắt buộc";
+        isValid = false;
+      } else if (name.length < 2) {
+        newErrors.name = "Họ tên phải có ít nhất 2 ký tự";
+        isValid = false;
+      }
+
+      // Password strength validation
+      if (password && !(/[A-Z]/.test(password) && /[0-9]/.test(password))) {
+        newErrors.password = "Mật khẩu phải có ít nhất 1 chữ hoa và 1 số";
+        isValid = false;
+      }
+
+      // Password confirmation
+      if (password !== passwordConfirm) {
+        newErrors.passwordConfirm = "Mật khẩu xác nhận không khớp";
+        isValid = false;
+      }
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -98,25 +160,9 @@ const Auth = () => {
       return;
     }
 
-    // Password validation for registration
-    if (!isLogin) {
-      if (password.length < 6) {
-        toast({
-          title: "Mật khẩu không đủ mạnh",
-          description: "Mật khẩu cần có ít nhất 6 ký tự",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (password !== passwordConfirm) {
-        toast({
-          title: "Mật khẩu không khớp",
-          description: "Mật khẩu xác nhận không khớp với mật khẩu đã nhập",
-          variant: "destructive",
-        });
-        return;
-      }
+    // Validate form
+    if (!validateForm()) {
+      return;
     }
 
     setIsLoading(true);
@@ -257,11 +303,17 @@ const Auth = () => {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg border border-border focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all-200"
+                      className={`w-full px-4 py-2 rounded-lg border ${errors.name ? 'border-destructive' : 'border-border'} focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all-200`}
                       placeholder="Nguyễn Văn A"
                       required={!isLogin}
                       disabled={isLoading}
                     />
+                    {errors.name && (
+                      <p className="text-destructive text-xs mt-1 flex items-center">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        {errors.name}
+                      </p>
+                    )}
                   </div>
                 )}
                 
@@ -274,11 +326,17 @@ const Auth = () => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg border border-border focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all-200"
+                    className={`w-full px-4 py-2 rounded-lg border ${errors.email ? 'border-destructive' : 'border-border'} focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all-200`}
                     placeholder="email@example.com"
                     required
                     disabled={isLoading}
                   />
+                  {errors.email && (
+                    <p className="text-destructive text-xs mt-1 flex items-center">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
                 
                 <div>
@@ -290,11 +348,17 @@ const Auth = () => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg border border-border focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all-200"
+                    className={`w-full px-4 py-2 rounded-lg border ${errors.password ? 'border-destructive' : 'border-border'} focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all-200`}
                     placeholder="••••••••"
                     required
                     disabled={isLoading}
                   />
+                  {errors.password && (
+                    <p className="text-destructive text-xs mt-1 flex items-center">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      {errors.password}
+                    </p>
+                  )}
                 </div>
                 
                 {!isLogin && (
@@ -307,11 +371,17 @@ const Auth = () => {
                       type="password"
                       value={passwordConfirm}
                       onChange={(e) => setPasswordConfirm(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg border border-border focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all-200"
+                      className={`w-full px-4 py-2 rounded-lg border ${errors.passwordConfirm ? 'border-destructive' : 'border-border'} focus:ring-1 focus:ring-accent focus:border-accent outline-none transition-all-200`}
                       placeholder="••••••••"
                       required={!isLogin}
                       disabled={isLoading}
                     />
+                    {errors.passwordConfirm && (
+                      <p className="text-destructive text-xs mt-1 flex items-center">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        {errors.passwordConfirm}
+                      </p>
+                    )}
                   </div>
                 )}
                 
@@ -342,6 +412,7 @@ const Auth = () => {
               <button
                 onClick={() => {
                   setIsLogin(!isLogin);
+                  setErrors({});
                   if (!isLogin) {
                     setPasswordConfirm('');
                   }
