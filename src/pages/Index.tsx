@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Mic, MicOff } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { useTokenBalance } from '@/hooks/useTokenBalance';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
@@ -18,7 +18,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 // Define interfaces to fix the type errors
@@ -30,6 +29,7 @@ interface Message {
 
 interface ChatResponse {
   error?: string;
+  content?: string;
 }
 
 const Index = () => {
@@ -213,60 +213,102 @@ const Index = () => {
   return (
     <Layout>
       <div className="flex flex-col h-full">
-        <div className="flex-1 overflow-y-auto">
-          <div className="py-4">
-            {messages.map((message) => (
-              <div key={message.id} className={`mb-2 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
-                <div className={`inline-block p-3 rounded-lg max-w-2/3 break-words ${message.role === 'user' ? 'bg-blue-500 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}`}>
-                  {message.content}
-                </div>
+        <div className="flex-1 overflow-y-auto px-4">
+          <div className="py-4 max-w-3xl mx-auto space-y-6">
+            {messages.length === 0 ? (
+              <div className="text-center mt-10 space-y-3">
+                <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300">
+                  Chào mừng đến với trợ lý AI
+                </h2>
+                <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+                  Bắt đầu cuộc trò chuyện bằng cách gửi tin nhắn đầu tiên của bạn.
+                </p>
               </div>
-            ))}
+            ) : (
+              messages.map((message) => (
+                <div 
+                  key={message.id} 
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div 
+                    className={`relative px-4 py-3 rounded-lg max-w-[80%] shadow-sm 
+                      ${message.role === 'user' 
+                        ? 'bg-primary text-primary-foreground rounded-br-none' 
+                        : 'bg-muted text-foreground rounded-bl-none'
+                      }`}
+                  >
+                    <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                    <div 
+                      className={`absolute w-3 h-3 bottom-0 
+                        ${message.role === 'user' 
+                          ? 'right-0 translate-x-1/2 bg-primary' 
+                          : 'left-0 -translate-x-1/2 bg-muted'
+                        }`}
+                      style={{
+                        clipPath: message.role === 'user' 
+                          ? 'polygon(0 0, 100% 0, 100% 100%)' 
+                          : 'polygon(0 0, 100% 0, 0 100%)'
+                      }}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
             {apiError && (
-              <div className="text-red-500 text-center">{apiError}</div>
+              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-md text-center">
+                {apiError}
+              </div>
             )}
             <div ref={bottomRef} />
           </div>
         </div>
 
-        <div className="py-4">
-          <form onSubmit={handleSubmit} className="relative">
-            <Input
-              ref={inputRef}
-              placeholder="Nhập tin nhắn..."
-              value={isSpeechToTextEnabled ? transcript : input}
-              onChange={isSpeechToTextEnabled ? () => { } : handleInputChange}
-              className="pr-12"
-              disabled={isLoading}
-            />
-            <div className="absolute right-2 top-2 flex items-center space-x-2">
-              {browserSupportsSpeechRecognition && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    if (isSpeechToTextEnabled) {
-                      stopListening();
-                    } else {
-                      startListening();
-                    }
-                    setIsSpeechToTextEnabled(!isSpeechToTextEnabled);
-                  }}
-                  disabled={isLoading}
-                >
-                  {isListening ? "Dừng" : "Nói"}
-                </Button>
-              )}
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="mr-2 h-4 w-4" />
+        <div className="border-t py-4 px-4">
+          <div className="max-w-3xl mx-auto">
+            <form onSubmit={handleSubmit} className="relative">
+              <Input
+                ref={inputRef}
+                placeholder="Nhập tin nhắn..."
+                value={isSpeechToTextEnabled ? transcript : input}
+                onChange={isSpeechToTextEnabled ? () => {} : handleInputChange}
+                className="pr-24 py-6 rounded-full shadow-sm"
+                disabled={isLoading}
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                {browserSupportsSpeechRecognition && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => {
+                      if (isSpeechToTextEnabled) {
+                        stopListening();
+                      } else {
+                        startListening();
+                      }
+                      setIsSpeechToTextEnabled(!isSpeechToTextEnabled);
+                    }}
+                    disabled={isLoading}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  </Button>
                 )}
-                Gửi
-              </Button>
-            </div>
-          </form>
+                <Button 
+                  type="submit" 
+                  size="icon"
+                  disabled={isLoading}
+                  className="rounded-full"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
 
