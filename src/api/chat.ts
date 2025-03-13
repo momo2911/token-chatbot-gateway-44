@@ -1,19 +1,21 @@
-
 // Define interfaces
 export interface ChatRequest {
-  message: string;
+  userId: string;
+  history?: [];
+  prompt: string;
   imageUrl?: string;
 }
 
 export interface ChatResponse {
-  content?: string;
+  response?: string;
   error?: string;
 }
 
 // API endpoint for chat completion
 export const sendChatMessage = async (request: ChatRequest): Promise<ChatResponse> => {
+  
   try {
-    const response = await fetch('/api/chat', {
+    const response = await fetch('http://localhost:3001/api/ai/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

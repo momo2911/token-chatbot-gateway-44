@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ImageUploader } from '@/components/ImageUploader';
+import { sendChatMessage, sendCompletionRequest } from '@/api/chat';
 
 // Define interfaces to fix the type errors
 interface Message {
@@ -92,7 +92,6 @@ const Index = () => {
     e.preventDefault();
     if (!input.trim() && !uploadedImage) return;
     
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -106,29 +105,20 @@ const Index = () => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          message: input,
-          imageUrl: uploadedImage 
-        }),
+      const data = await sendChatMessage({
+        userId: user?.uid|| 'anonymous',
+        prompt: input, 
+        imageUrl: uploadedImage || undefined 
       });
-      
-      const data = await response.json() as ChatResponse;
       
       if (data.error) {
         setApiError(data.error);
       } else {
         setApiError(null);
-        // Add assistant response
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: data.content || "I'm sorry, I couldn't process your request."
+          content: data.response || "I'm sorry, I couldn't process your request."
         };
         setMessages((prev) => [...prev, assistantMessage]);
       }
@@ -141,7 +131,6 @@ const Index = () => {
   };
 
   const complete = async (text: string) => {
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -154,29 +143,19 @@ const Index = () => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      const response = await fetch('/api/completion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          prompt: text,
-          imageUrl: uploadedImage
-        }),
+      const data = await sendCompletionRequest({ 
+        prompt: text, 
+        imageUrl: uploadedImage || undefined 
       });
-      
-      const data = await response.json() as ChatResponse;
       
       if (data.error) {
         setApiError(data.error);
       } else {
         setApiError(null);
-        // Add assistant response
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: data.content || "I'm sorry, I couldn't process your request."
+          content: data.response || "I'm sorry, I couldn't process your request."
         };
         setMessages((prev) => [...prev, assistantMessage]);
       }
@@ -194,13 +173,13 @@ const Index = () => {
       setIsAlertDialogOpen(true);
       return;
     }
-    if (tokenBalance === 0) {
-      toast({
-        title: "Hết token",
-        description: "Bạn đã hết token. Vui lòng nạp thêm token để tiếp tục sử dụng.",
-      });
-      return;
-    }
+    // if (tokenBalance === 0) {
+    //   toast({
+    //     title: "Hết token",
+    //     description: "Bạn đã hết token. Vui lòng nạp thêm token để tiếp tục sử dụng.",
+    //   });
+    //   return;
+    // }
     if (settings?.isStream) {
       e.preventDefault();
       complete(input);
@@ -240,7 +219,7 @@ const Index = () => {
         <div className="flex-1 overflow-y-auto px-4">
           <div className="py-4 max-w-3xl mx-auto space-y-6">
             {messages.length === 0 ? (
-              <div className="text-center mt-10 space-y-3">
+              <div className="text-center mt-10 space-y-3 h-">
                 <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300">
                   Chào mừng đến với trợ lý AI
                 </h2>

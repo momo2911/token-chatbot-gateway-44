@@ -16,7 +16,7 @@ export const useTokenBalance = () => {
     const userRef = doc(db, "users", auth.currentUser.uid);
     const unsubscribe = onSnapshot(userRef, (doc) => {
       if (doc.exists()) {
-        setTokenBalance(doc.data().tokens || 0);
+        setTokenBalance(doc.data().tokens || 100);
       } else {
         setTokenBalance(0);
       }

@@ -235,7 +235,7 @@ const Account = () => {
           
           {isHistoryExpanded && (
             <div className="mt-4">
-              {userData.usageHistory.length > 0 ? (
+              {userData.usageHistory?.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-full">
                     <thead>

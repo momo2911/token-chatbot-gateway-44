@@ -3,12 +3,11 @@ const express = require('express');
 const { OpenAI } = require('openai');
 const router = express.Router();
 const ChatSession = require('../models/ChatSession');
-
+require('dotenv').config()
 // Initialize OpenAI with your API key
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
 // Get chat history for a user
 router.get('/chat/history/:userId', async (req, res) => {
   try {
@@ -35,6 +34,7 @@ router.get('/chat/history/:userId', async (req, res) => {
 
 // Endpoint to handle AI chat
 router.post('/chat', async (req, res) => {
+
   try {
     const { prompt, history = [], userId } = req.body;
     
