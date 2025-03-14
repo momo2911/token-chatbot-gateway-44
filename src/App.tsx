@@ -1,23 +1,49 @@
 
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Account from "./pages/Account";
-import Admin from "./pages/Admin";
-import Settings from "./pages/Settings";
-import UserData from "./pages/UserData";
-import NotFound from "./pages/NotFound";
 import { isAuthenticated, onAuthStateChange, refreshAuthToken, isTokenExpired } from "./utils/auth";
 import { auth, db } from "./lib/firebase";
 import { useToast } from "./hooks/use-toast";
 import { doc, getDoc } from "firebase/firestore";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const queryClient = new QueryClient();
+// Lazy loaded components
+const Index = lazy(() => import("./pages/Index"));
+const Auth = lazy(() => import("./pages/Auth"));
+const Account = lazy(() => import("./pages/Account"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Settings = lazy(() => import("./pages/Settings"));
+const UserData = lazy(() => import("./pages/UserData"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+// Loading component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="w-full max-w-md space-y-4 p-4">
+      <Skeleton className="h-12 w-3/4 mx-auto" />
+      <Skeleton className="h-32 w-full" />
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+        <Skeleton className="h-4 w-4/6" />
+      </div>
+    </div>
+  </div>
+);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000, // 10 minutes
+    },
+  },
+});
 
 // Component that needs access to router hooks
 const AppContent = () => {
@@ -58,9 +84,7 @@ const AppContent = () => {
   // Protected route component
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     if (!authChecked) {
-      return <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin w-8 h-8 border-4 border-accent border-t-transparent rounded-full"></div>
-      </div>;
+      return <PageLoader />;
     }
     
     if (!user && !isAuthenticated()) {
@@ -95,9 +119,7 @@ const AppContent = () => {
     }, [user]);
 
     if (!authChecked || checking) {
-      return <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin w-8 h-8 border-4 border-accent border-t-transparent rounded-full"></div>
-      </div>;
+      return <PageLoader />;
     }
     
     if (!user || !isAuthenticated()) {
@@ -117,38 +139,40 @@ const AppContent = () => {
   };
 
   return (
-    <Routes>
-      <Route path="/" element={
-        <ProtectedRoute>
-          <Index />
-        </ProtectedRoute>
-      } />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/account" element={
-        <ProtectedRoute>
-          <Account />
-        </ProtectedRoute>
-      } />
-      <Route path="/admin" element={
-        <AdminRoute>
-          <Admin />
-        </AdminRoute>
-      } />
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <Settings />
-        </ProtectedRoute>
-      } />
-      <Route path="/user-data" element={
-        <ProtectedRoute>
-          <UserData />
-        </ProtectedRoute>
-      } />
-      <Route path="/logout" element={
-        <Navigate to="/auth" replace={true} />
-      } />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Index />
+          </ProtectedRoute>
+        } />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/account" element={
+          <ProtectedRoute>
+            <Account />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin" element={
+          <AdminRoute>
+            <Admin />
+          </AdminRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        } />
+        <Route path="/user-data" element={
+          <ProtectedRoute>
+            <UserData />
+          </ProtectedRoute>
+        } />
+        <Route path="/logout" element={
+          <Navigate to="/auth" replace={true} />
+        } />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 };
 

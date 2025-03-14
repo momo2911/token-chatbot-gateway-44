@@ -1,16 +1,38 @@
 
 import { getAuthToken, refreshAuthToken, isTokenExpired } from './auth';
 
-// Base API URL from environment
+// Base API URL from environment with a default fallback
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+// Cache for API responses
+const apiCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 /**
- * Secure fetch wrapper that handles authentication
+ * Secure fetch wrapper that handles authentication with caching
  */
 export async function secureApiFetch(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  useCache: boolean = false
 ): Promise<Response> {
+  // Generate cache key based on endpoint and request options
+  const cacheKey = useCache ? 
+    `${endpoint}-${options.method || 'GET'}-${JSON.stringify(options.body || '')}` : 
+    null;
+  
+  // Check cache for GET requests if useCache is true
+  if (useCache && options.method === undefined && cacheKey) {
+    const cachedResponse = apiCache.get(cacheKey);
+    if (cachedResponse && (Date.now() - cachedResponse.timestamp) < CACHE_DURATION) {
+      // Return cached response as a Response object
+      return new Response(JSON.stringify(cachedResponse.data), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
+  }
+  
   // Check if token is expired and refresh if needed
   if (isTokenExpired()) {
     await refreshAuthToken();
@@ -36,34 +58,46 @@ export async function secureApiFetch(
     headers
   };
   
-  // Make the authenticated request
-  const response = await fetch(`${API_URL}${endpoint}`, secureOptions);
-  
-  // Handle 401 Unauthorized - token might be invalid or expired
-  if (response.status === 401) {
-    console.warn('Authentication error, attempting to refresh token...');
+  try {
+    // Make the authenticated request
+    const response = await fetch(`${API_URL}${endpoint}`, secureOptions);
     
-    // Try to refresh the token
-    const newToken = await refreshAuthToken();
-    
-    // If token refresh was successful, retry the request
-    if (newToken) {
-      headers.set('Authorization', `Bearer ${newToken}`);
-      return fetch(`${API_URL}${endpoint}`, {
-        ...secureOptions,
-        headers
-      });
+    // Handle 401 Unauthorized - token might be invalid or expired
+    if (response.status === 401) {
+      console.warn('Authentication error, attempting to refresh token...');
+      
+      // Try to refresh the token
+      const newToken = await refreshAuthToken();
+      
+      // If token refresh was successful, retry the request
+      if (newToken) {
+        headers.set('Authorization', `Bearer ${newToken}`);
+        return fetch(`${API_URL}${endpoint}`, {
+          ...secureOptions,
+          headers
+        });
+      }
     }
+    
+    // Cache successful GET responses if useCache is true
+    if (useCache && response.ok && options.method === undefined && cacheKey) {
+      const clonedResponse = response.clone();
+      const data = await clonedResponse.json();
+      apiCache.set(cacheKey, { data, timestamp: Date.now() });
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('API fetch error:', error);
+    throw error;
   }
-  
-  return response;
 }
 
 /**
- * Helper function for making GET requests
+ * Helper function for making GET requests with optional caching
  */
-export async function secureApiGet<T = any>(endpoint: string): Promise<T> {
-  const response = await secureApiFetch(endpoint);
+export async function secureApiGet<T = any>(endpoint: string, useCache: boolean = false): Promise<T> {
+  const response = await secureApiFetch(endpoint, {}, useCache);
   
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
@@ -122,4 +156,9 @@ export async function secureApiDelete(endpoint: string): Promise<void> {
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }
+}
+
+// Function to clear the API cache
+export function clearApiCache(): void {
+  apiCache.clear();
 }

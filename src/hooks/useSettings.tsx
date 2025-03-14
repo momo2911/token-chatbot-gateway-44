@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -20,8 +21,8 @@ export const useSettings = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Default settings
-  const defaultSettings: Settings = {
+  // Default settings - memoized to prevent unnecessary recreation
+  const defaultSettings = useMemo<Settings>(() => ({
     isStream: false,
     theme: 'system',
     language: 'vi',
@@ -30,57 +31,63 @@ export const useSettings = () => {
     temperature: 0.7,
     codeHighlighting: true,
     showAvatars: false,
-  };
+  }), []);
 
   useEffect(() => {
-    if (!auth.currentUser) {
-      // Use local storage for non-authenticated users
-      const storedSettings = localStorage.getItem('app-settings');
-      if (storedSettings) {
-        try {
-          setSettings(JSON.parse(storedSettings));
-        } catch (error) {
-          console.error("Error parsing settings:", error);
+    let unsubscribe = () => {};
+    
+    const loadSettings = async () => {
+      if (!auth.currentUser) {
+        // Use local storage for non-authenticated users
+        const storedSettings = localStorage.getItem('app-settings');
+        if (storedSettings) {
+          try {
+            setSettings(JSON.parse(storedSettings));
+          } catch (error) {
+            console.error("Error parsing settings:", error);
+            setSettings(defaultSettings);
+          }
+        } else {
           setSettings(defaultSettings);
         }
-      } else {
-        setSettings(defaultSettings);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-      return () => {};
-    }
 
-    // For authenticated users, use Firestore
-    const userSettingsRef = doc(db, "users", auth.currentUser.uid, "settings", "preferences");
-    
-    // Subscribe to settings changes
-    const unsubscribe = onSnapshot(userSettingsRef, (doc) => {
-      if (doc.exists()) {
-        setSettings(doc.data() as Settings);
-      } else {
-        // Initialize settings if they don't exist
-        setDoc(userSettingsRef, defaultSettings)
-          .catch(error => {
-            console.error("Error creating default settings:", error);
-            toast({
-              title: "Lỗi",
-              description: "Không thể tạo cài đặt mặc định",
-              variant: "destructive",
+      // For authenticated users, use Firestore
+      const userSettingsRef = doc(db, "users", auth.currentUser.uid, "settings", "preferences");
+      
+      // Subscribe to settings changes
+      unsubscribe = onSnapshot(userSettingsRef, (doc) => {
+        if (doc.exists()) {
+          setSettings(doc.data() as Settings);
+        } else {
+          // Initialize settings if they don't exist
+          setDoc(userSettingsRef, defaultSettings)
+            .catch(error => {
+              console.error("Error creating default settings:", error);
+              toast({
+                title: "Lỗi",
+                description: "Không thể tạo cài đặt mặc định",
+                variant: "destructive",
+              });
             });
-          });
-        setSettings(defaultSettings);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.error("Error getting settings:", error);
-      setLoading(false);
-    });
+          setSettings(defaultSettings);
+        }
+        setLoading(false);
+      }, (error) => {
+        console.error("Error getting settings:", error);
+        setLoading(false);
+      });
+    };
 
+    loadSettings();
+    
     return () => unsubscribe();
-  }, [auth.currentUser, toast]);
+  }, [auth.currentUser, toast, defaultSettings]);
 
-  // Function to update settings
-  const updateSettings = async (newSettings: Partial<Settings>) => {
+  // Function to update settings - memoized with useCallback
+  const updateSettings = useCallback(async (newSettings: Partial<Settings>) => {
     if (!settings) return;
     
     const updatedSettings = { ...settings, ...newSettings };
@@ -111,7 +118,7 @@ export const useSettings = () => {
         description: "Thay đổi của bạn đã được lưu",
       });
     }
-  };
+  }, [settings, toast]);
 
   return { settings, loading, updateSettings };
 };

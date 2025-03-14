@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from 'react';
-import { doc, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { doc, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useUser } from './useUser';
 import { useToast } from './use-toast';
@@ -20,9 +20,10 @@ export function useChatHistory() {
   const { user } = useUser();
   const { toast } = useToast();
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+  const initialLoadComplete = useRef(false);
 
-  // Load chat histories
-  const loadChatHistories = async () => {
+  // Load chat histories with optimization
+  const loadChatHistories = useCallback(async () => {
     if (!user) {
       setHistories([]);
       setLoading(false);
@@ -31,10 +32,12 @@ export function useChatHistory() {
 
     try {
       setLoading(true);
+      // Optimize query with limit for initial load
       const q = query(
         collection(db, "chatHistories"),
         where("userId", "==", user.uid),
-        orderBy("updatedAt", "desc")
+        orderBy("updatedAt", "desc"),
+        limit(25) // Only load the most recent 25 histories initially
       );
       
       const querySnapshot = await getDocs(q);
@@ -46,6 +49,7 @@ export function useChatHistory() {
       })) as ChatHistoryItem[];
       
       setHistories(loadedHistories);
+      initialLoadComplete.current = true;
     } catch (error) {
       console.error("Error loading chat histories:", error);
       toast({
@@ -56,10 +60,10 @@ export function useChatHistory() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
 
-  // Create a new chat history
-  const createChatHistory = async (title: string = "New Chat"): Promise<string | null> => {
+  // Create a new chat history - memoized with useCallback
+  const createChatHistory = useCallback(async (title: string = "New Chat"): Promise<string | null> => {
     if (!user) return null;
     
     try {
@@ -87,10 +91,10 @@ export function useChatHistory() {
       });
       return null;
     }
-  };
+  }, [user, toast]);
 
-  // Update a chat history
-  const updateChatHistory = async (id: string, data: Partial<ChatHistoryItem>) => {
+  // Update a chat history - memoized with useCallback
+  const updateChatHistory = useCallback(async (id: string, data: Partial<ChatHistoryItem>) => {
     if (!user) return;
     
     try {
@@ -116,10 +120,10 @@ export function useChatHistory() {
         variant: "destructive",
       });
     }
-  };
+  }, [user, toast]);
 
-  // Delete a chat history
-  const deleteChatHistory = async (id: string) => {
+  // Delete a chat history - memoized with useCallback
+  const deleteChatHistory = useCallback(async (id: string) => {
     if (!user) return;
     
     try {
@@ -143,12 +147,14 @@ export function useChatHistory() {
         variant: "destructive",
       });
     }
-  };
+  }, [user, toast, activeHistoryId]);
 
   // Load histories when user changes
   useEffect(() => {
-    loadChatHistories();
-  }, [user]);
+    if (user && !initialLoadComplete.current) {
+      loadChatHistories();
+    }
+  }, [user, loadChatHistories]);
 
   return {
     histories,
