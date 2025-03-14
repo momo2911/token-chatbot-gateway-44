@@ -2,14 +2,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, UserCircle } from 'lucide-react';
 import AuthCard from '@/components/auth/AuthCard';
 import FormInput from '@/components/auth/FormInput';
 import { Button } from '@/components/ui/button';
 import { login } from '@/utils/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import { useAdminUser } from '@/hooks/useAdminUser';
 
 const AdminAuth = () => {
   const [email, setEmail] = useState('');
@@ -18,7 +17,6 @@ const AdminAuth = () => {
   const [errors, setErrors] = useState<{email?: string; password?: string}>({});
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { createAdminUser } = useAdminUser();
 
   const validateForm = () => {
     const newErrors: {email?: string; password?: string} = {};
@@ -87,6 +85,15 @@ const AdminAuth = () => {
     }
   };
 
+  const useDefaultAdmin = () => {
+    setEmail("admin@example.com");
+    setPassword("admin123");
+    toast({
+      title: "Thông tin đăng nhập demo",
+      description: "Đã điền thông tin tài khoản admin mẫu.",
+    });
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-background to-accent/5">
       <div className="w-full max-w-md">
@@ -139,14 +146,14 @@ const AdminAuth = () => {
             <div className="text-center">
               <Button 
                 variant="outline"
-                onClick={createAdminUser}
-                disabled={isLoading}
-                className="w-full"
+                onClick={useDefaultAdmin}
+                className="w-full flex items-center justify-center"
               >
-                Tạo tài khoản quản trị mới
+                <UserCircle className="mr-2 h-4 w-4" />
+                Sử dụng tài khoản demo
               </Button>
               <p className="text-xs text-muted-foreground mt-2">
-                Chỉ dành cho mục đích demo
+                Email: admin@example.com | Mật khẩu: admin123
               </p>
             </div>
           </div>
