@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 // Lazy loaded components
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
+const AdminAuth = lazy(() => import("./pages/AdminAuth"));
 const Account = lazy(() => import("./pages/Account"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -147,6 +148,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/admin-auth" element={<AdminAuth />} />
         <Route path="/account" element={
           <ProtectedRoute>
             <Account />

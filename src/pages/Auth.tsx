@@ -27,7 +27,6 @@ const Auth = () => {
     showResetPassword,
     showVerifyEmail,
     handleSubmit,
-    createAdminUser,
     getRemainingLockTime,
     toggleAuthMode,
     handleForgotPassword,
@@ -77,7 +76,6 @@ const Auth = () => {
               loginAttempts={loginAttempts}
               MAX_LOGIN_ATTEMPTS={MAX_LOGIN_ATTEMPTS}
               handleSubmit={handleSubmit}
-              createAdminUser={createAdminUser}
               onForgotPassword={handleForgotPassword}
             />
           ) : (

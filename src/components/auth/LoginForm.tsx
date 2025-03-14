@@ -17,7 +17,6 @@ interface LoginFormProps {
   loginAttempts: number;
   MAX_LOGIN_ATTEMPTS: number;
   handleSubmit: (e: React.FormEvent) => Promise<void>;
-  createAdminUser: () => Promise<void>;
   onForgotPassword: () => void;
 }
 
@@ -31,81 +30,68 @@ const LoginForm = ({
   loginAttempts,
   MAX_LOGIN_ATTEMPTS,
   handleSubmit,
-  createAdminUser,
   onForgotPassword
 }: LoginFormProps) => {
   return (
-    <>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <FormInput
+        id="email"
+        label="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        type="email"
+        placeholder="email@example.com"
+        error={errors.email}
+        required
+        disabled={isLoading}
+      />
+      
+      <div className="space-y-1">
         <FormInput
-          id="email"
-          label="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          placeholder="email@example.com"
-          error={errors.email}
+          id="password"
+          label="Mật khẩu"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          type="password"
+          placeholder="••••••••"
+          error={errors.password}
           required
           disabled={isLoading}
         />
         
-        <div className="space-y-1">
-          <FormInput
-            id="password"
-            label="Mật khẩu"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type="password"
-            placeholder="••••••••"
-            error={errors.password}
-            required
+        <div className="text-right">
+          <button 
+            type="button"
+            onClick={onForgotPassword}
+            className="text-xs text-accent hover:underline"
             disabled={isLoading}
-          />
-          
-          <div className="text-right">
-            <button 
-              type="button"
-              onClick={onForgotPassword}
-              className="text-xs text-accent hover:underline"
-              disabled={isLoading}
-            >
-              Quên mật khẩu?
-            </button>
-          </div>
+          >
+            Quên mật khẩu?
+          </button>
         </div>
-        
-        {loginAttempts > 0 && (
-          <div className="text-xs text-muted-foreground text-right">
-            Số lần thử còn lại: {MAX_LOGIN_ATTEMPTS - loginAttempts}
-          </div>
-        )}
-        
-        <Button
-          type="submit"
-          disabled={isLoading}
-          className="w-full"
-        >
-          {isLoading ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <>
-              Đăng nhập
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </>
-          )}
-        </Button>
-      </form>
-
-      <div className="mt-4 text-center">
-        <button
-          onClick={createAdminUser}
-          className="text-xs text-muted-foreground hover:text-accent transition-all-200"
-          disabled={isLoading}
-        >
-          Tạo tài khoản admin (chỉ cho mục đích demo)
-        </button>
       </div>
-    </>
+      
+      {loginAttempts > 0 && (
+        <div className="text-xs text-muted-foreground text-right">
+          Số lần thử còn lại: {MAX_LOGIN_ATTEMPTS - loginAttempts}
+        </div>
+      )}
+      
+      <Button
+        type="submit"
+        disabled={isLoading}
+        className="w-full"
+      >
+        {isLoading ? (
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <>
+            Đăng nhập
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </>
+        )}
+      </Button>
+    </form>
   );
 };
 
