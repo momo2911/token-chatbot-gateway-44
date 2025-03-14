@@ -88,12 +88,17 @@ export const useAuth = () => {
         
         if (result.success) {
           setShowVerifyEmail(true);
+          // Don't redirect after registration, show verify email screen
+          toast({
+            title: "Đăng ký thành công",
+            description: "Vui lòng kiểm tra email để xác thực tài khoản của bạn.",
+          });
         }
       }
       
-      if (result.success && !showVerifyEmail) {
+      if (result.success && !showVerifyEmail && isLogin) {
         toast({
-          title: isLogin ? "Đăng nhập thành công" : "Đăng ký thành công",
+          title: "Đăng nhập thành công",
           description: "Chào mừng bạn đến với Token Gateway!",
         });
         navigate(redirectPath);
@@ -137,6 +142,7 @@ export const useAuth = () => {
   const handleBackToLogin = () => {
     setShowResetPassword(false);
     setShowVerifyEmail(false);
+    setIsLogin(true); // Ensure we're in login mode when returning
   };
 
   return {

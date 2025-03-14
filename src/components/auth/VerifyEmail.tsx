@@ -57,10 +57,14 @@ const VerifyEmail = ({ email, onBackToLogin }: VerifyEmailProps) => {
   const handleLogout = async () => {
     try {
       await logout();
-      onBackToLogin();
+      onBackToLogin(); // Return to login page after logout
     } catch (error) {
       console.error('Error logging out:', error);
     }
+  };
+
+  const handleBackToSignIn = () => {
+    handleLogout(); // Ensure logout happens before going back
   };
 
   return (
@@ -94,15 +98,15 @@ const VerifyEmail = ({ email, onBackToLogin }: VerifyEmailProps) => {
         
         <Button
           variant="outline"
-          onClick={handleLogout}
+          onClick={handleBackToSignIn}
           className="w-full"
         >
-          Đăng xuất
+          Quay lại đăng nhập
         </Button>
       </div>
       
       <p className="text-xs text-muted-foreground">
-        Nếu bạn không nhận được email, vui lòng kiểm tra thư mục spam hoặc nhấp vào nút "Gửi lại email xác thực".
+        Sau khi xác thực email, bạn có thể đăng nhập để sử dụng đầy đủ tính năng của hệ thống.
       </p>
     </div>
   );
