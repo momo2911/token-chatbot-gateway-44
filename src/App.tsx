@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
+import Settings from "./pages/Settings";
 import UserData from "./pages/UserData";
 import NotFound from "./pages/NotFound";
 import { isAuthenticated, onAuthStateChange, refreshAuthToken, isTokenExpired } from "./utils/auth";
@@ -132,6 +133,11 @@ const AppContent = () => {
         <AdminRoute>
           <Admin />
         </AdminRoute>
+      } />
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <Settings />
+        </ProtectedRoute>
       } />
       <Route path="/user-data" element={
         <ProtectedRoute>

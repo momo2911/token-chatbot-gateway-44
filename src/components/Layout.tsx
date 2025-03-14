@@ -7,13 +7,15 @@ import {
   User, 
   LogOut, 
   Menu,
-  X
+  X,
+  Settings
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { auth } from "@/lib/firebase";
 import { logout } from "@/utils/auth";
 import { toast } from "@/hooks/use-toast";
+import { ChatHistoryList } from "./ChatHistoryList";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -62,8 +64,8 @@ export function Layout({ children }: LayoutProps) {
   };
   
   const navigation = [
-    { name: 'Cuộc trò chuyện', href: '/', icon: MessageCircle },
     { name: 'Tài khoản', href: '/account', icon: User },
+    { name: 'Cài đặt', href: '/settings', icon: Settings },
   ];
 
   return (
@@ -145,24 +147,37 @@ export function Layout({ children }: LayoutProps) {
       
       <div className="flex-1 flex overflow-hidden">
         {isLoggedIn && !isMobile && (
-          <aside className="hidden md:flex w-64 flex-shrink-0 flex-col border-r border-border/40">
-            <nav className="flex-1 px-4 py-6 space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    "flex items-center space-x-2 px-4 py-2 rounded-md transition-all-200 text-base",
-                    location.pathname === item.href
-                      ? "bg-accent/10 text-accent font-medium"
-                      : "hover:bg-accent/5 text-foreground"
-                  )}
-                >
-                  <item.icon size={18} />
-                  <span>{item.name}</span>
-                </Link>
-              ))}
-            </nav>
+          <aside className="w-64 flex-shrink-0 flex-col border-r border-border/40 flex">
+            <div className="flex-1 overflow-y-auto">
+              {location.pathname === '/' ? (
+                <ChatHistoryList />
+              ) : (
+                <nav className="px-4 py-6 space-y-1">
+                  <Link
+                    to="/"
+                    className="flex items-center space-x-2 px-4 py-2 rounded-md transition-all-200 text-base hover:bg-accent/5 text-foreground"
+                  >
+                    <MessageCircle size={18} />
+                    <span>Cuộc trò chuyện</span>
+                  </Link>
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={cn(
+                        "flex items-center space-x-2 px-4 py-2 rounded-md transition-all-200 text-base",
+                        location.pathname === item.href
+                          ? "bg-accent/10 text-accent font-medium"
+                          : "hover:bg-accent/5 text-foreground"
+                      )}
+                    >
+                      <item.icon size={18} />
+                      <span>{item.name}</span>
+                    </Link>
+                  ))}
+                </nav>
+              )}
+            </div>
             
             <div className="p-4 border-t border-border/40">
               <button

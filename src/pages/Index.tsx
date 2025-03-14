@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Layout } from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2, Mic, MicOff, Image as ImageIcon } from 'lucide-react';
+import { Send, Loader2, Mic, MicOff, Image as ImageIcon, RotateCcw } from 'lucide-react';
 import { useUser } from '@/hooks/useUser';
 import { useTokenBalance } from '@/hooks/useTokenBalance';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
@@ -20,8 +22,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ImageUploader } from '@/components/ImageUploader';
 import { sendChatMessage, sendCompletionRequest } from '@/api/chat';
+import { useChatHistory } from '@/hooks/useChatHistory';
+import { getChatMessages, addChatMessage, updateChatTitle, ChatMessage } from '@/utils/chatService';
 
-// Define interfaces to fix the type errors
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -31,15 +34,18 @@ interface Message {
 
 interface ChatResponse {
   error?: string;
-  content?: string;
+  response?: string;
 }
 
 const Index = () => {
-  const [messagesLoaded, setMessagesLoaded] = useState(false);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const chatId = searchParams.get('chatId');
   const { toast } = useToast();
   const { user } = useUser();
   const { settings } = useSettings();
   const { tokenBalance } = useTokenBalance();
+  const { createChatHistory, activeHistoryId, setActiveHistoryId } = useChatHistory();
   const [apiError, setApiError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,35 +54,62 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
   const [isImageUploaderOpen, setIsImageUploaderOpen] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   
-  // Load chat history from local storage on component mount
+  // Load messages for the selected chat history
   useEffect(() => {
-    const storedMessages = localStorage.getItem('chat-history');
-    if (storedMessages) {
-      try {
-        setMessages(JSON.parse(storedMessages));
+    const loadMessages = async () => {
+      if (!chatId || !user) {
+        setMessages([]);
         setMessagesLoaded(true);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const chatMessages = await getChatMessages(chatId);
+        
+        setMessages(chatMessages.map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          imageUrl: msg.imageUrl
+        })));
+        
+        setActiveHistoryId(chatId);
       } catch (error) {
-        console.error("Error parsing chat history from local storage:", error);
+        console.error("Error loading chat messages:", error);
         toast({
           title: "Lỗi",
-          description: "Có lỗi xảy ra khi tải lịch sử trò chuyện",
+          description: "Không thể tải tin nhắn trò chuyện",
           variant: "destructive",
         });
+      } finally {
+        setIsLoading(false);
+        setMessagesLoaded(true);
       }
-    } else {
-      setMessagesLoaded(true);
-    }
-  }, [toast]);
+    };
 
-  // Save chat history to local storage whenever messages change
-  useEffect(() => {
-    if (messagesLoaded) {
-      localStorage.setItem('chat-history', JSON.stringify(messages));
+    if (user) {
+      loadMessages();
     }
-  }, [messages, messagesLoaded]);
+  }, [chatId, user, toast, setActiveHistoryId]);
+
+  // Create a new chat if none is selected
+  useEffect(() => {
+    const createNewChatIfNeeded = async () => {
+      if (user && !chatId && messagesLoaded) {
+        const newChatId = await createChatHistory();
+        if (newChatId) {
+          navigate(`/?chatId=${newChatId}`);
+        }
+      }
+    };
+    
+    createNewChatIfNeeded();
+  }, [user, chatId, messagesLoaded, createChatHistory, navigate]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -91,6 +124,7 @@ const Index = () => {
   const handleAISubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() && !uploadedImage) return;
+    if (!chatId) return;
     
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -105,8 +139,20 @@ const Index = () => {
     setIsLoading(true);
     
     try {
+      // Save the user message to the database
+      await addChatMessage(chatId, {
+        role: 'user',
+        content: input,
+        imageUrl: uploadedImage
+      });
+      
+      // Update the chat title if this is the first message
+      if (messages.length === 0) {
+        await updateChatTitle(chatId, input);
+      }
+      
       const data = await sendChatMessage({
-        userId: user?.uid|| 'anonymous',
+        userId: user?.uid || 'anonymous',
         prompt: input, 
         imageUrl: uploadedImage || undefined 
       });
@@ -120,7 +166,14 @@ const Index = () => {
           role: 'assistant',
           content: data.response || "I'm sorry, I couldn't process your request."
         };
+        
         setMessages((prev) => [...prev, assistantMessage]);
+        
+        // Save the assistant message to the database
+        await addChatMessage(chatId, {
+          role: 'assistant',
+          content: data.response || "I'm sorry, I couldn't process your request."
+        });
       }
     } catch (error) {
       setApiError("Failed to connect to the server.");
@@ -131,6 +184,8 @@ const Index = () => {
   };
 
   const complete = async (text: string) => {
+    if (!chatId) return;
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -143,6 +198,18 @@ const Index = () => {
     setIsLoading(true);
     
     try {
+      // Save the user message to the database
+      await addChatMessage(chatId, {
+        role: 'user',
+        content: text,
+        imageUrl: uploadedImage
+      });
+      
+      // Update the chat title if this is the first message
+      if (messages.length === 0) {
+        await updateChatTitle(chatId, text);
+      }
+      
       const data = await sendCompletionRequest({ 
         prompt: text, 
         imageUrl: uploadedImage || undefined 
@@ -157,7 +224,14 @@ const Index = () => {
           role: 'assistant',
           content: data.response || "I'm sorry, I couldn't process your request."
         };
+        
         setMessages((prev) => [...prev, assistantMessage]);
+        
+        // Save the assistant message to the database
+        await addChatMessage(chatId, {
+          role: 'assistant',
+          content: data.response || "I'm sorry, I couldn't process your request."
+        });
       }
     } catch (error) {
       setApiError("Failed to connect to the server.");
@@ -173,13 +247,7 @@ const Index = () => {
       setIsAlertDialogOpen(true);
       return;
     }
-    // if (tokenBalance === 0) {
-    //   toast({
-    //     title: "Hết token",
-    //     description: "Bạn đã hết token. Vui lòng nạp thêm token để tiếp tục sử dụng.",
-    //   });
-    //   return;
-    // }
+    
     if (settings?.isStream) {
       e.preventDefault();
       complete(input);
@@ -199,6 +267,14 @@ const Index = () => {
     });
   };
 
+  // Handle starting a new chat
+  const handleNewChat = async () => {
+    const newChatId = await createChatHistory();
+    if (newChatId) {
+      navigate(`/?chatId=${newChatId}`);
+    }
+  };
+
   // Speech to text functionality
   const {
     startListening,
@@ -211,14 +287,31 @@ const Index = () => {
   // Focus on input on load
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+  }, [chatId]);
 
   return (
     <Layout>
       <div className="flex flex-col h-full">
+        <div className="border-b pb-2 mb-4 flex items-center justify-between">
+          <h1 className="text-xl font-semibold">Cuộc trò chuyện</h1>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex items-center gap-1"
+            onClick={handleNewChat}
+          >
+            <RotateCcw className="h-4 w-4" />
+            <span className="hidden sm:inline">Cuộc trò chuyện mới</span>
+          </Button>
+        </div>
+        
         <div className="flex-1 overflow-y-auto px-4">
           <div className="py-4 max-w-3xl mx-auto space-y-6">
-            {messages.length === 0 ? (
+            {isLoading && messages.length === 0 ? (
+              <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : messages.length === 0 ? (
               <div className="text-center mt-10 space-y-3 h-">
                 <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300">
                   Chào mừng đến với trợ lý AI
@@ -325,6 +418,7 @@ const Index = () => {
                     onClick={() => {
                       if (isSpeechToTextEnabled) {
                         stopListening();
+                        setInput(transcript);
                       } else {
                         startListening();
                       }
