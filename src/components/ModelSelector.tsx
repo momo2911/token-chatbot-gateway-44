@@ -12,20 +12,29 @@ import { AIModel, getAvailableModels } from '@/utils/ai';
 import { cn } from '@/lib/utils';
 
 interface ModelSelectorProps {
-  selectedModel: AIModel;
-  onModelChange: (model: AIModel) => void;
+  value?: AIModel;
+  selectedModel?: AIModel;
+  onValueChange?: (model: AIModel) => void;
+  onModelChange?: (model: AIModel) => void;
   disabled?: boolean;
   className?: string;
 }
 
 export function ModelSelector({ 
-  selectedModel, 
-  onModelChange, 
+  value,
+  selectedModel,
+  onValueChange,
+  onModelChange,
   disabled = false,
   className 
 }: ModelSelectorProps) {
   const models = getAvailableModels();
-  const currentModel = models.find(model => model.id === selectedModel) || models[0];
+  const currentModel = models.find(model => model.id === (value || selectedModel)) || models[0];
+  
+  const handleModelChange = (modelId: AIModel) => {
+    if (onValueChange) onValueChange(modelId);
+    if (onModelChange) onModelChange(modelId);
+  };
 
   return (
     <DropdownMenu>
@@ -49,14 +58,14 @@ export function ModelSelector({
           <DropdownMenuItem
             key={model.id}
             className="flex items-center justify-between gap-1 px-2.5 py-2"
-            onClick={() => onModelChange(model.id)}
+            onClick={() => handleModelChange(model.id)}
             disabled={disabled}
           >
             <div className="flex flex-col gap-1">
               <span className="text-sm font-medium">{model.name}</span>
               <span className="text-xs text-muted-foreground">{model.description}</span>
             </div>
-            {selectedModel === model.id && <Check className="size-4 text-accent" />}
+            {(value || selectedModel) === model.id && <Check className="size-4 text-accent" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

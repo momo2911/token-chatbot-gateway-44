@@ -1,14 +1,18 @@
-
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { AIModel } from '@/utils/ai';
 
 interface Settings {
   isStream: boolean;
   theme: 'light' | 'dark' | 'system';
   language: string;
   notificationsEnabled: boolean;
+  model: AIModel;
+  temperature: number;
+  codeHighlighting: boolean;
+  showAvatars: boolean;
 }
 
 export const useSettings = () => {
@@ -22,6 +26,10 @@ export const useSettings = () => {
     theme: 'system',
     language: 'vi',
     notificationsEnabled: true,
+    model: 'gpt-4o-mini',
+    temperature: 0.7,
+    codeHighlighting: true,
+    showAvatars: false,
   };
 
   useEffect(() => {
